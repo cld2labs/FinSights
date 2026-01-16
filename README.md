@@ -431,7 +431,7 @@ docker compose logs -f backend
 
 ## License
 
-This project is licensed under the [MIT License](./LICENSE) - see LICENSE file for details.
+This project is licensed under our custom license - see [LICENSE](./LICENSE) file for details.
 
 For third-party licenses, see [LICENSE-3rd-party.txt](./LICENSE-3rd-party.txt)
 
@@ -445,6 +445,8 @@ For third-party licenses, see [LICENSE-3rd-party.txt](./LICENSE-3rd-party.txt)
 - Do not rely solely on AI summaries for investment decisions
 - Consult financial advisors for investment guidance
 - Test thoroughly before using in production environments
+
+For full disclaimer details, see [DISCLAIMER.md](./DISCLAIMER.md)
 
 ---
 
