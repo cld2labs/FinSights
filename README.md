@@ -433,7 +433,6 @@ docker compose logs -f backend
 
 This project is licensed under our custom license - see [LICENSE](./LICENSE) file for details.
 
-For third-party licenses, see [LICENSE-3rd-party.txt](./LICENSE-3rd-party.txt)
 
 ---
 
