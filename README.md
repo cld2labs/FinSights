@@ -8,11 +8,11 @@ AI-powered financial document analysis with intelligent section-based summarizat
 
 - [Project Overview](#project-overview)
 - [Architecture](#architecture)
-- [Features](#features)
-- [Project Structure](#project-structure)
 - [Get Started](#get-started)
   - [Prerequisites](#prerequisites)
   - [Quick Start](#quick-start)
+- [Features](#features)
+- [Project Structure](#project-structure)
 - [Usage Guide](#usage-guide)
 - [Environment Variables](#environment-variables)
 - [Technology Stack](#technology-stack)
@@ -23,21 +23,21 @@ AI-powered financial document analysis with intelligent section-based summarizat
 
 ## Project Overview
 
-**FinSights** is an intelligent financial document analysis platform that processes text and financial documents (PDF, DOCX) to generate comprehensive summaries organized into six key financial sections:
-- **Financial Performance** - Narrative overview with key financial numbers
-- **Key Metrics** - Essential KPIs and financial indicators
-- **Risks** - Identified risks and challenges
-- **Opportunities** - Growth and business opportunities
-- **Outlook / Guidance** - Forward-looking statements and guidance
-- **Other Important Highlights** - Notable items, dividends, balance sheet items, and auditor notes
+**FinSights** is an intelligent financial document analysis platform that processes text and financial documents (PDF, DOCX) to generate comprehensive summaries with dynamically generated sections.
 
-Users can paste text directly or upload documents, and the system intelligently extracts and summarizes content using OpenAI's GPT-4o-mini model. The backend caches extracted documents, allowing users to explore different sections without re-uploading.
+### How It Works
+
+1. **Document Upload & Processing**: Users upload or paste financial documents. The system extracts and caches the raw text.
+2. **Dynamic Section Generation**: Based on the document content, the system intelligently generates relevant financial analysis sections tailored to the specific document.
+3. **Section-wise Summarization**: Users can then generate summaries for each dynamically detected section, allowing them to explore different aspects of the financial document at their own pace.
+
+The platform leverages OpenAI's GPT-4o-mini model for intelligent content analysis and summarization. The backend caches extracted documents, allowing users to explore different sections without re-uploading the same document.
 
 ---
 
 ## Architecture
 
-The application follows a modular microservices architecture with specialized components for document processing and AI summarization:
+The application follows a modular microservices architecture with specialized components for document processing, dynamic section detection, and AI-powered summarization:
 
 ```mermaid
 graph LR
@@ -50,7 +50,8 @@ graph LR
   %% ====== BACKEND ======
   subgraph BE[Backend - FastAPI<br/>Port 8000]
     B[API Router]
-    E[PDF Service]
+    E[Document Service]
+    S[Section Detector]
     D[LLM Service]
     K[PDF Generator]
     G[In-Memory Cache<br/>TTL 1 hour]
@@ -66,12 +67,15 @@ graph LR
   A -->|HTTP| B
 
   B --> E
+  B --> S
   B --> D
   B --> K
 
   E -->|Extracted Text| G
+  S -->|Read Cached Text| G
+  S -->|Detect Sections| D
   D -->|Read Cached Text| G
-  D -->|Write Summary| H
+  D -->|Generate Summary| H
   K -->|Read History| H
 
   D -->|API Call| F
@@ -83,6 +87,7 @@ graph LR
   %% ====== STYLES ======
   style A fill:#e1f5ff
   style B fill:#fff4e1
+  style S fill:#ffe1f5
   style D fill:#ffe1f5
   style E fill:#ffe1f5
   style K fill:#ffe1f5
@@ -92,17 +97,169 @@ graph LR
 
 ```
 
+### Architecture Components
+
+**Frontend (React)**
+- User-friendly interface for document upload and section exploration
+- Real-time display of dynamically detected sections
+- Summary viewing and export functionality
+
+**Backend Services**
+- **Document Service**: Extracts text from PDF/DOCX files with validation
+- **Section Detector**: Analyzes document content and identifies relevant financial sections
+- **LLM Service**: Generates section-specific summaries using OpenAI API
+- **PDF Generator**: Creates formatted PDF exports of summaries
+- **Cache System**: In-memory caching of extracted documents (1-hour TTL)
+- **History System**: Maintains session summary records
+
+**External Integration**
+- **OpenAI API**: GPT-4o-mini model for intelligent content analysis and summarization
+
 ---
 
-## Features
+## Get Started
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed and configured:
+
+- **Docker and Docker Compose** (v20.10+)
+  - [Install Docker](https://docs.docker.com/get-docker/)
+  - [Install Docker Compose](https://docs.docker.com/compose/install/)
+- **OpenAI API Key** (for GPT-4o-mini access)
+  - [Create OpenAI Account](https://platform.openai.com/account/api-keys)
+  - [API Key Management](https://platform.openai.com/account/billing/overview)
+
+#### Verify Installation
+
+```bash
+# Check Docker
+docker --version
+docker compose version
+
+# Verify Docker is running
+docker ps
+```
+
+### Quick Start
+
+#### 1. Clone or Navigate to Repository
+
+```bash
+# If cloning:
+git clone <your-repo-url>
+cd FinSights
+```
+
+#### 2. Configure Environment Variables
+
+Create `backend/.env` with your OpenAI credentials:
+
+```bash
+cat > backend/.env << EOF
+# OpenAI Configuration (REQUIRED)
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4o-mini
+
+# LLM Configuration
+LLM_TEMPERATURE=0.2
+LLM_MAX_TOKENS=900
+
+# Caching Configuration
+CACHE_MAX_DOCS=25
+CACHE_TTL_SECONDS=3600
+
+# Service Configuration
+SERVICE_PORT=8000
+LOG_LEVEL=INFO
+
+# CORS Settings
+CORS_ORIGINS=*
+EOF
+```
+
+**Replace** `your_openai_api_key_here` with your actual OpenAI API key.
+
+#### 3. Launch the Application
+
+**Option A: Standard Deployment**
+
+```bash
+# Build and start all services
+docker compose up --build
+
+# Or run in detached mode (background)
+docker compose up -d --build
+```
+
+**Option B: View Logs While Running**
+
+```bash
+# All services
+docker compose up --build
+
+# In another terminal, view specific logs
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+#### 4. Access the Application
+
+Once containers are running, access:
+
+- **Frontend UI**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **API Redoc**: http://localhost:8000/redoc
+
+#### 5. Verify Services
+
+```bash
+# Check health status
+curl http://localhost:8000/health
+
+# View running containers
+docker compose ps
+```
+
+#### 6. Stop the Application
+
+```bash
+docker compose down
+```
+
+---
+
+### Architecture Components
+
+**Frontend (React)**
+- User-friendly interface for document upload and section exploration
+- Real-time display of dynamically detected sections
+- Summary viewing and export functionality
+
+**Backend Services**
+- **Document Service**: Extracts text from PDF/DOCX files with validation
+- **Section Detector**: Analyzes document content and identifies relevant financial sections
+- **LLM Service**: Generates section-specific summaries using OpenAI API
+- **PDF Generator**: Creates formatted PDF exports of summaries
+- **Cache System**: In-memory caching of extracted documents (1-hour TTL)
+- **History System**: Maintains session summary records
+
+**External Integration**
+- **OpenAI API**: GPT-4o-mini model for intelligent content analysis and summarization
+
+---
+
+## Features (Advanced)
 
 **Backend**
 
 - Multiple input format support (text, PDF, DOCX)
 - PDF text extraction with OCR support for image-based PDFs using pytesseract
 - DOCX document processing with python-docx
-- AI-powered summarization using OpenAI's GPT-4o-mini model
-- Intelligent section-based summarization with context-aware analysis
+- Dynamic section detection based on document content analysis
+- Section-wise AI-powered summarization using OpenAI's GPT-4o-mini model
+- Intelligent context-aware analysis for each generated section
 - Smart document caching system (1-hour TTL, up to 25 documents) to avoid reprocessing
 - File validation and size limits (PDF/DOCX: 50 MB)
 - Page limit protection (max 100 pages per PDF) to prevent timeouts
@@ -110,13 +267,15 @@ graph LR
 - CORS enabled for web integration
 - Comprehensive error handling and logging
 - Health check endpoints
-- Modular architecture (routes + services + LLM service + PDF service)
+- Modular architecture (routes + services + LLM service + document service + section detector)
 
 **Frontend**
 
 - Clean, intuitive interface with tab-based input selection (Text / File)
 - Drag-and-drop file upload capability
-- Real-time summary display with clickable financial section chips
+- Dynamic section detection display showing available financial sections
+- Real-time summary generation with clickable financial section chips
+- Section-wise summary exploration without re-uploading
 - Chat-like history view of all summaries
 - PDF export functionality for generated summaries
 - Mobile-responsive design with Tailwind CSS
