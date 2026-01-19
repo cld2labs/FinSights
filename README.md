@@ -147,7 +147,7 @@ docker ps
 
 ```bash
 # If cloning:
-git clone <your-repo-url>
+git clone git@github.com:cld2labs/FinSights.git
 cd FinSights
 ```
 
