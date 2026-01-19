@@ -374,28 +374,7 @@ Configure the application behavior using environment variables in `backend/.env`
 | `MAX_PDF_PAGES` | Maximum PDF pages to process | `100` | integer |
 | `MAX_PDF_SIZE` | Maximum PDF file size in bytes | `52428800` | integer |
 
-### Configuration Examples
 
-**Production Setup**
-```bash
-OPENAI_API_KEY=sk-your-production-key
-OPENAI_MODEL=gpt-4o-mini
-LLM_TEMPERATURE=0.1
-LOG_LEVEL=WARNING
-CACHE_MAX_DOCS=50
-CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
-```
-
-**Development Setup**
-```bash
-OPENAI_API_KEY=sk-your-dev-key
-OPENAI_MODEL=gpt-4o-mini
-LLM_TEMPERATURE=0.5
-LOG_LEVEL=DEBUG
-CACHE_MAX_DOCS=10
-```
-
----
 
 
 ---
@@ -419,11 +398,6 @@ CACHE_MAX_DOCS=10
 - **UI Components**: Lucide React icons
 - **Export**: jsPDF for PDF generation
 - **Notifications**: react-hot-toast
-
-### DevOps
-- **Containerization**: Docker + Docker Compose
-- **Architecture**: Microservices with isolated containers
-- **Networking**: Docker bridge network
 
 ---
 
