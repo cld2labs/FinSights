@@ -16,6 +16,9 @@ export const Generate = () => {
   // Store doc_id returned by backend (for file flow)
   const [docId, setDocId] = useState('');
 
+  // Dynamic section chips returned by backend (2-5)
+  const [dynamicSections, setDynamicSections] = useState([]);
+
   // Chat-like history
   const [history, setHistory] = useState([]);
 
@@ -29,21 +32,20 @@ export const Generate = () => {
     { id: 'file', label: 'Upload File' },
   ];
 
-  const sectionOptions = useMemo(
-    () => [
-      'Financial Performance',
-      'Key Metrics',
-      'Risks',
-      'Opportunities',
-      'Outlook / Guidance',
-      'Other Important Highlights',
-    ],
+  // Fallback chips if backend does not return sections
+  const fallbackSectionOptions = useMemo(
+    () => ['General Summary', 'Key Extracts'],
     []
   );
 
+  const sectionOptions = useMemo(() => {
+    if (Array.isArray(dynamicSections) && dynamicSections.length >= 2) return dynamicSections;
+    return fallbackSectionOptions;
+  }, [dynamicSections, fallbackSectionOptions]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [history, isLoadingInitial, activeChipLoading]);
+  }, [history, isLoadingInitial, activeChipLoading, dynamicSections]);
 
   // ----------------------------
   // Frontend-only: remove duplicated section heading from LLM output
@@ -55,12 +57,6 @@ export const Generate = () => {
     const t = String(text).replace(/\r\n/g, '\n').trimStart();
     const h = String(heading).trim();
 
-    // Matches:
-    // "Financial Performance"
-    // "Financial Performance\n"
-    // "Financial Performance:"
-    // "Financial Performance -"
-    // (case-insensitive)
     const escaped = h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const re = new RegExp(`^${escaped}\\s*[:\\-–]?\\s*\\n?`, 'i');
     return t.replace(re, '').trim();
@@ -79,7 +75,6 @@ export const Generate = () => {
   const buildPdfFromHistory = (items) => {
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
-    // Page + typography constants
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const marginX = 48;
@@ -96,19 +91,16 @@ export const Generate = () => {
       }
     };
 
-    // Title
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
     doc.text('FinSights', marginX, y);
     y += 18;
 
-    // Meta line
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, marginX, y);
     y += 22;
 
-    // Only include assistant outputs, in order
     const outputs = (items || []).filter(
       (it) => it && it.role === 'assistant' && (it.text || '').trim().length > 0
     );
@@ -124,24 +116,20 @@ export const Generate = () => {
       const title = (item.title || `Section ${idx + 1}`).trim();
       const body = stripLeadingHeading(item.text || '', title);
 
-      // Section heading
       ensureSpace(24);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(14);
       doc.text(title, marginX, y);
       y += 16;
 
-      // Body
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(11);
 
-      // Support long text + newlines
       const paragraphs = (body || '').split('\n');
       paragraphs.forEach((p, pIdx) => {
         const lineText = (p || '').trimEnd();
         const lines = doc.splitTextToSize(lineText, contentWidth);
 
-        // Empty line -> spacing
         if (lines.length === 0) {
           ensureSpace(14);
           y += 12;
@@ -154,14 +142,12 @@ export const Generate = () => {
           y += 14;
         });
 
-        // Gap between paragraphs
         if (pIdx !== paragraphs.length - 1) {
           ensureSpace(10);
           y += 6;
         }
       });
 
-      // Gap between sections (NO divider line)
       y += 18;
     });
 
@@ -183,17 +169,20 @@ export const Generate = () => {
     doc.save(filename);
   };
 
+  const resetRunState = () => {
+    setHistory([]);
+    setDocId('');
+    setDynamicSections([]);
+    setLastFormData(null);
+  };
+
   const handleSubmit = async (formData) => {
     setIsLoadingInitial(true);
 
-    // Reset for new run
-    setHistory([]);
-    setDocId('');
+    resetRunState();
 
-    // Store lastFormData only for text flow (no doc_id support needed)
-    // For file flow, storing file FormData causes re-upload on clicks (slow).
+    // Store lastFormData only for text flow
     if (activeTab === 'text') setLastFormData(formData);
-    else setLastFormData(null);
 
     try {
       const fd = cloneFormData(formData);
@@ -201,8 +190,24 @@ export const Generate = () => {
 
       const json = await generateSummaryJson(fd);
 
-      // If backend returned doc_id (file upload flow), store it
       if (json.doc_id) setDocId(json.doc_id);
+
+      // dynamic sections from backend (expected field)
+      // Accept either: json.sections = ["A","B"] OR json.sections = [{title:"A"},...]
+      const secs = json.sections || json.section_options || [];
+      let titles = [];
+
+      if (Array.isArray(secs)) {
+        titles = secs
+          .map((s) => (typeof s === 'string' ? s : s?.title))
+          .filter(Boolean)
+          .map((s) => String(s).trim())
+          .filter((s) => s.length > 0);
+      }
+
+      // enforce 2 to 5 on frontend too (safety)
+      if (titles.length >= 2) setDynamicSections(titles.slice(0, 5));
+      else setDynamicSections([]);
 
       const rawText = json.text || json.output_text || '';
       const text = stripLeadingHeading(rawText, 'Generalized Summary');
@@ -220,39 +225,32 @@ export const Generate = () => {
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to generate summary. Please try again.');
-      setHistory([]);
-      setLastFormData(null);
-      setDocId('');
+      resetRunState();
     } finally {
       setIsLoadingInitial(false);
     }
   };
 
   const handleChipClick = async (section) => {
-    // Must have either docId (file) or lastFormData (text)
     if (!docId && !lastFormData) {
       toast.error('Please upload a document or paste text first.');
       return;
     }
     if (activeChipLoading || isLoadingInitial) return;
 
-    // Append user selection bubble (kept for UI chat display)
     setHistory((prev) => [...prev, { role: 'user', text: section, ts: Date.now() }]);
-
     setActiveChipLoading(section);
 
     try {
       let fd;
 
       if (docId) {
-        // FAST PATH (file upload): send only doc_id + section, no file re-upload
         fd = new FormData();
         fd.set('type', 'text');
         fd.set('doc_id', docId);
         fd.set('mode', 'financial_section');
         fd.set('section', section);
       } else {
-        // TEXT PATH: reuse text form data
         fd = cloneFormData(lastFormData);
         fd.set('mode', 'financial_section');
         fd.set('section', section);
@@ -431,7 +429,6 @@ export const Generate = () => {
 
         <div className="space-y-6">
           <div className="card animate-slide-up">
-            {/* header with Download button */}
             <div className="mb-4 flex items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-gray-800">Summary Output</h2>
 

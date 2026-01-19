@@ -32,9 +32,76 @@ export const withModeAndSection = (formData, mode, section, docId) => {
 };
 
 /**
- * NEW: Generate and return JSON (so frontend can read doc_id)
- * - If response is SSE/stream text, returns: { text: "...", doc_id: "" }
- * - Otherwise expects backend JSON and returns it directly
+ * Parse SSE-like response content into a JSON object if possible.
+ */
+const parseSseLikeToJson = (responseText) => {
+  const lines = responseText.split('\n');
+  let extractedText = '';
+  let extractedDocId = '';
+  let extractedSections = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.includes('[DONE]') || trimmed === '' || trimmed === 'data:') continue;
+
+    if (trimmed.startsWith('data: ')) {
+      let dataContent = trimmed.substring(6).trim();
+
+      if (dataContent.startsWith("b'") && dataContent.endsWith("'")) {
+        dataContent = dataContent.substring(2, dataContent.length - 1);
+      }
+      if (dataContent.startsWith('b"') && dataContent.endsWith('"')) {
+        dataContent = dataContent.substring(2, dataContent.length - 1);
+      }
+
+      const tryParse = (s) => {
+        try {
+          return JSON.parse(s);
+        } catch {
+          return null;
+        }
+      };
+
+      let obj = tryParse(dataContent);
+
+      if (!obj) {
+        try {
+          const decoded = decodePythonString(dataContent);
+          obj = tryParse(decoded);
+        } catch {
+          obj = null;
+        }
+      }
+
+      if (obj) {
+        if (obj.text) extractedText += obj.text;
+        if (obj.doc_id) extractedDocId = obj.doc_id;
+        if (obj.sections || obj.section_options) extractedSections = obj.sections || obj.section_options;
+      } else {
+        // best-effort text fallback
+        const textMatch = dataContent.match(/"text":"([^"]*(?:\\.[^"]*)*)"/);
+        if (textMatch && textMatch[1]) {
+          const unescapedText = textMatch[1]
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, '\\')
+            .replace(/\\n/g, '\n');
+          extractedText += unescapedText;
+        }
+      }
+    }
+  }
+
+  return {
+    text: extractedText || responseText,
+    doc_id: extractedDocId || '',
+    sections: extractedSections || undefined,
+  };
+};
+
+/**
+ * Generate and return JSON
+ * Backend should ideally return:
+ * { text: "...", doc_id: "...", sections: ["A","B","C"] }
  */
 export const generateSummaryJson = async (formData) => {
   const response = await fetch(`${BACKEND_ENDPOINT}/v1/docsum`, {
@@ -49,48 +116,9 @@ export const generateSummaryJson = async (formData) => {
 
   const responseText = await response.text();
 
-  // Handle SSE-like response (data: {...})
+  // Handle SSE-like response
   if (responseText.includes('data:')) {
-    const lines = responseText.split('\n');
-    let extractedText = '';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.includes('[DONE]') || trimmed === '' || trimmed === 'data:') continue;
-
-      if (trimmed.startsWith('data: ')) {
-        let dataContent = trimmed.substring(6).trim();
-
-        if (dataContent.startsWith("b'") && dataContent.endsWith("'")) {
-          dataContent = dataContent.substring(2, dataContent.length - 1);
-        }
-        if (dataContent.startsWith('b"') && dataContent.endsWith('"')) {
-          dataContent = dataContent.substring(2, dataContent.length - 1);
-        }
-
-        try {
-          const jsonData = JSON.parse(dataContent);
-          if (jsonData.text) extractedText += jsonData.text;
-        } catch {
-          try {
-            const decodedContent = decodePythonString(dataContent);
-            const jsonData = JSON.parse(decodedContent);
-            if (jsonData.text) extractedText += jsonData.text;
-          } catch {
-            const textMatch = dataContent.match(/"text":"([^"]*(?:\\.[^"]*)*)"/);
-            if (textMatch && textMatch[1]) {
-              const unescapedText = textMatch[1]
-                .replace(/\\"/g, '"')
-                .replace(/\\\\/g, '\\')
-                .replace(/\\n/g, '\n');
-              extractedText += unescapedText;
-            }
-          }
-        }
-      }
-    }
-
-    return { text: extractedText || responseText, doc_id: '' };
+    return parseSseLikeToJson(responseText);
   }
 
   // Normal JSON response
