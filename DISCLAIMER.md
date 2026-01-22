@@ -18,5 +18,3 @@ outcome resulting from the use or modification of this blueprint.
 This software is not HIPAA-compliant by default, and Cloud2 Labs does not
 provide a Business Associate Agreement (BAA).
 
-For the authoritative disclaimer, refer to:
-https://github.com/cld2labs/innovation-hub/blob/main/DISCLAIMER.md

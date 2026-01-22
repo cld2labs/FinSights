@@ -1,20 +1,7 @@
-# License – FinSights – Financial Document Summarization Blueprint
+MIT License
 
-Copyright (c) Cloud2 Labs
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-This software is provided by Cloud2 Labs "as is" and "as available" for
-educational and demonstration purposes only.
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-This repository contains the **FinSights – Financial Document Summarization
-Blueprint** and represents a reference implementation. It does not constitute
-a production-ready system, medical device, clinical decision support system, or
-regulatory-compliant solution.
-
-Cloud2 Labs makes no representations or warranties of any kind, express or
-implied, regarding the accuracy, reliability, completeness, or suitability of
-the software or its outputs for any purpose.
-
-Use of this blueprint is governed by the Cloud2 Labs license terms defined in
-the main repository:
-
-https://github.com/cld2labs/innovation-hub/blob/main/LICENSE.md
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
