@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Docs/assets/InnovationHub-HeaderImage.png" width="800" alt="Company Logo">
+  <img src="docs/assets/InnovationHub-HeaderImage.png" width="800" alt="Company Logo">
 </p>
 
 # 📊 FinSights - Financial Document Summarization AI Blueprint
