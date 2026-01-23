@@ -19,7 +19,4 @@ the Cloud2 Labs maintainers.
 - Do not introduce sensitive, proprietary, or regulated data
 
 By submitting a contribution, you agree that your work may be used, modified,
-and redistributed by Cloud2 Labs under the contribution terms defined in the
-main repository:
-
-https://github.com/cld2labs/innovation-hub/blob/main/CONTRIBUTING.md
+and redistributed by Cloud2 Labs.
