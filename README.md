@@ -2,7 +2,7 @@
   <img src="docs/assets/InnovationHub-HeaderImage.png" width="800" alt="Company Logo">
 </p>
 
-# 📊 FinSights - Financial Document Summarization AI Blueprint
+# 📊 FinSights - Financial Document Summarization
 
 AI-powered financial document analysis with intelligent section-based summarization using OpenAI's GPT models.
 
