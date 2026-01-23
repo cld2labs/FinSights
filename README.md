@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/InnovationHub-HeaderImage.png" width="800" alt="Company Logo">
+</p>
+
 # 📊 FinSights - Financial Document Summarization AI Blueprint
 
 AI-powered financial document analysis with intelligent section-based summarization using OpenAI's GPT models.
@@ -452,7 +456,7 @@ docker compose logs -f backend
 
 ## License
 
-This project is licensed under our custom license - see [LICENSE](./LICENSE) file for details.
+This project is licensed under our [LICENSE](./LICENSE.md) file for details.
 
 
 ---
@@ -467,17 +471,6 @@ This project is licensed under our custom license - see [LICENSE](./LICENSE) fil
 - Test thoroughly before using in production environments
 
 For full disclaimer details, see [DISCLAIMER.md](./DISCLAIMER.md)
-
----
-
-## Support & Feedback
-
-Have suggestions or encountered an issue?
-
-- 🐛 [Report Bugs](https://github.com/your-org/finsights/issues)
-- 💡 [Request Features](https://github.com/your-org/finsights/issues)
-- 💬 [Start Discussions](https://github.com/your-org/finsights/discussions)
-- 📧 [Contact Us](mailto:support@yourdomain.com)
 
 ---
 
