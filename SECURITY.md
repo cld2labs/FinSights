@@ -1,6 +1,6 @@
-# Security Policy – FinSights – Financial Document Summarization Blueprint
+# Security Policy 
 
-The **FinSights – Financial Document Summarization Blueprint** does not include
+The **FinSights** does not include
 production-grade security controls.
 
 This repository is not secure by default and must not be used in production
@@ -12,7 +12,3 @@ Users are responsible for implementing appropriate:
 - Monitoring, logging, and auditing
 - Regulatory and compliance safeguards
 
-For responsible disclosure and security guidance, refer to the main Cloud2 Labs
-security policy:
-
-https://github.com/cld2labs/innovation-hub/blob/main/SECURITY.md
