@@ -1,7 +1,7 @@
-# Contributing – FinSights – Financial Document Summarization Blueprint
+# Contributing to  FinSights 
 
 Thank you for your interest in contributing to the
-**FinSights – Financial Document Summarization Blueprint** by Cloud2 Labs.
+**FinSights** by Cloud2 Labs.
 
 ## Scope of Contributions
 Appropriate contributions include:
