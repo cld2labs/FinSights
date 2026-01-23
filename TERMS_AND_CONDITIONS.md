@@ -1,7 +1,6 @@
-# Terms and Conditions – FinSights – Financial Document Summarization Blueprint
+# Terms and Conditions
 
-This repository contains the **FinSights – Financial Document Summarization
-Blueprint** maintained by Cloud2 Labs.
+This repository contains the **FinSights** maintained by Cloud2 Labs.
 
 By accessing or using this blueprint, you acknowledge and agree that:
 
@@ -13,7 +12,3 @@ By accessing or using this blueprint, you acknowledge and agree that:
 Cloud2 Labs does not support or recommend production deployment of this
 blueprint.
 
-The authoritative Terms and Conditions are defined in the main Cloud2 Labs
-repository:
-
-https://github.com/cld2labs/innovation-hub/blob/main/TERMS_AND_CONDITIONS.md
