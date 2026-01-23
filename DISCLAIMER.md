@@ -1,4 +1,4 @@
-# Disclaimer – FinSights – Financial Document Summarization Blueprint
+# Disclaimer 
 
 This blueprint is provided by Cloud2 Labs "as is" and "as available" for
 educational and demonstration purposes only.
