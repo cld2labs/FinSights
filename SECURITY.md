@@ -12,7 +12,3 @@ Users are responsible for implementing appropriate:
 - Monitoring, logging, and auditing
 - Regulatory and compliance safeguards
 
-For responsible disclosure and security guidance, refer to the main Cloud2 Labs
-security policy:
-
-https://github.com/cld2labs/innovation-hub/blob/main/SECURITY.md
