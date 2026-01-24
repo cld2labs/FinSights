@@ -1,6 +1,6 @@
-# Security Policy – FinSights – Financial Document Summarization Blueprint
+# Security Policy 
 
-The **FinSights – Financial Document Summarization Blueprint** does not include
+The **FinSights** does not include
 production-grade security controls.
 
 This repository is not secure by default and must not be used in production

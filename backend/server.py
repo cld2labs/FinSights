@@ -1,0 +1,103 @@
+"""
+FastAPI server for Doc-Sum Application (OpenAI-only)
+"""
+
+import logging
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
+import config
+from models import HealthResponse
+from api.routes import router
+
+# IMPORTANT: llm_service is inside the "service" package
+from services.llm_service import llm_service
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, config.LOG_LEVEL),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Initialize FastAPI app
+app = FastAPI(
+    title=config.APP_TITLE,
+    description=config.APP_DESCRIPTION,
+    version=config.APP_VERSION,
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config.CORS_ORIGINS.split(",") if config.CORS_ORIGINS != "*" else ["*"],
+    allow_credentials=config.CORS_ALLOW_CREDENTIALS,
+    allow_methods=config.CORS_ALLOW_METHODS,
+    allow_headers=config.CORS_ALLOW_HEADERS,
+)
+
+# Include API routes
+app.include_router(router)
+
+
+@app.get("/")
+def root():
+    """Root endpoint with service info"""
+    response = {
+        "message": "FinSights Service is running",
+        "version": config.APP_VERSION,
+        "status": "healthy",
+        "docs": "/docs",
+        "health": "/health",
+        "config": {
+            "llm_provider": "OpenAI",
+            "llm_model": config.OPENAI_MODEL,
+            "openai_configured": bool(config.OPENAI_API_KEY),
+        },
+    }
+    return response
+
+
+@app.get("/health", response_model=HealthResponse)
+def health_check():
+    """Detailed health check - OpenAI only"""
+    response_data = {
+        "status": "healthy",
+        "service": config.APP_TITLE,
+        "version": config.APP_VERSION,
+    }
+
+    llm_health = llm_service.health_check()
+
+    # Only set fields that likely exist in your HealthResponse model
+    # Keep the original fields + add llm_provider (as your old code did)
+    response_data["llm_provider"] = "OpenAI"
+
+    # If OpenAI isn't configured or health check fails, mark unhealthy
+    if llm_health.get("status") in ("not_configured", "unhealthy"):
+        response_data["status"] = "unhealthy"
+
+    return HealthResponse(**response_data)
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Log configuration on startup"""
+    logger.info("=" * 60)
+    logger.info(f"Starting {config.APP_TITLE} v{config.APP_VERSION}")
+    logger.info("=" * 60)
+    logger.info("LLM Provider: OpenAI")
+    logger.info(f"OpenAI Configured: {bool(config.OPENAI_API_KEY)}")
+    logger.info(f"Model: {config.OPENAI_MODEL}")
+    logger.info(f"Port: {config.SERVICE_PORT}")
+    logger.info("=" * 60)
+
+
+if __name__ == "__main__":
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=config.SERVICE_PORT,
+        timeout_keep_alive=300,
+    )

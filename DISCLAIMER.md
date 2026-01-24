@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Disclaimer
+=======
+# Disclaimer 
+>>>>>>> origin/main
 
 This blueprint is provided by Cloud2 Labs "as is" and "as available" for
 educational and demonstration purposes only.
