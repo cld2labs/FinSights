@@ -34,8 +34,7 @@ AI-powered financial document analysis with intelligent section-based summarizat
 1. **Document Upload & Processing**: Users upload or paste financial documents. The system extracts and caches the raw text.
 2. **Dynamic Section Generation**: Based on the document content, the system intelligently generates relevant financial analysis sections tailored to the specific document.
 3. **Section-wise Summarization**: Users can then generate summaries for each dynamically detected section, allowing them to explore different aspects of the financial document at their own pace.
-4. **Dynamic Suggestions**: The system provides intelligent recommendations and insights based on the document content, highlighting key financial metrics and important trends.
-5. **Chat with RAG**: Users can interact with an intelligent chat interface that uses Retrieval Augmented Generation (RAG) to answer questions about the uploaded document, providing context-aware responses based on the actual document content.
+4. **Chat with RAG**: Users can interact with an intelligent chat interface that uses Retrieval Augmented Generation (RAG) to answer questions about the uploaded document, providing context-aware responses based on the actual document content.
 
 The platform leverages OpenAI's GPT-4o-mini model for intelligent content analysis and summarization. The backend caches extracted documents, allowing users to explore different sections without re-uploading the same document. The RAG-powered chat system enables conversational analysis of financial documents with high accuracy.
 
@@ -43,7 +42,7 @@ The platform leverages OpenAI's GPT-4o-mini model for intelligent content analys
 
 ## Architecture
 
-The application follows a modular microservices architecture with specialized components for document processing, dynamic section detection, AI-powered summarization, dynamic suggestions, and RAG-based chat:
+The application follows a modular microservices architecture with specialized components for document processing, dynamic section detection, AI-powered summarization, and RAG-based chat:
 
 ```mermaid
 graph LR
@@ -60,7 +59,6 @@ graph LR
     S[Section Detector]
     D[LLM Service]
     K[PDF Generator]
-    SUG[Suggestion Engine]
     CHAT[RAG Chat Service]
     VEC[Vector Store<br/>Embeddings]
     G[In-Memory Cache<br/>TTL 1 hour]
@@ -79,7 +77,6 @@ graph LR
   B --> S
   B --> D
   B --> K
-  B --> SUG
   B --> CHAT
 
   E -->|Extracted Text| G
@@ -88,8 +85,6 @@ graph LR
   D -->|Read Cached Text| G
   D -->|Generate Summary| H
   K -->|Read History| H
-  SUG -->|Read Cached Text| G
-  SUG -->|Generate Suggestions| D
   
   CHAT -->|Retrieve Context| VEC
   CHAT -->|Generate Response| D
@@ -109,7 +104,6 @@ graph LR
   style D fill:#ffe1f5
   style E fill:#ffe1f5
   style K fill:#ffe1f5
-  style SUG fill:#ffe1f5
   style CHAT fill:#ffe1f5
   style F fill:#fff3cd
   style G fill:#e8f5e9
@@ -125,14 +119,12 @@ graph LR
 - Real-time display of dynamically detected sections
 - Summary viewing and export functionality
 - Interactive chat interface for RAG-based document queries
-- Dynamic suggestion display panel
 
 **Backend Services**
 - **Document Service**: Extracts text from PDF/DOCX files with validation
 - **Section Detector**: Analyzes document content and identifies relevant financial sections
 - **LLM Service**: Generates section-specific summaries using OpenAI API
 - **PDF Generator**: Creates formatted PDF exports of summaries
-- **Suggestion Engine**: Analyzes document content and generates intelligent recommendations, key metrics, and insights
 - **RAG Chat Service**: Implements Retrieval Augmented Generation (RAG) for context-aware question answering about uploaded documents
 - **Vector Store**: Manages document embeddings for efficient semantic search in RAG operations
 - **Cache System**: In-memory caching of extracted documents (1-hour TTL)
@@ -266,7 +258,6 @@ docker compose down
 - Dynamic section detection based on document content analysis
 - Section-wise AI-powered summarization using OpenAI's GPT-4o-mini model
 - Intelligent context-aware analysis for each generated section
-- **Dynamic Suggestions**: Intelligent recommendation engine that extracts key metrics, insights, and actionable recommendations from financial documents
 - **RAG-Based Chat**: Retrieval Augmented Generation (RAG) implementation for accurate question-answering about document content
   - Vector embeddings for semantic search
   - Context-aware response generation
@@ -278,7 +269,7 @@ docker compose down
 - CORS enabled for web integration
 - Comprehensive error handling and logging
 - Health check endpoints
-- Modular architecture (routes + services + LLM service + document service + section detector + suggestion engine + RAG chat service)
+- Modular architecture (routes + services + LLM service + document service + section detector + RAG chat service)
 
 **Frontend**
 
@@ -287,7 +278,6 @@ docker compose down
 - Dynamic section detection display showing available financial sections
 - Real-time summary generation with clickable financial section chips
 - Section-wise summary exploration without re-uploading
-- **Dynamic Suggestions Panel**: Display of AI-generated recommendations and key insights
 - **Interactive Chat Interface**: RAG-powered chat for asking questions about the document with context-aware responses
 - Chat-like history view of all summaries
 - PDF export functionality for generated summaries
@@ -306,7 +296,6 @@ FinSights/
 │   ├── services/
 │   │   ├── llm_service.py     # OpenAI integration
 │   │   ├── pdf_service.py     # Document processing
-│   │   ├── suggestion_service.py # Dynamic suggestion generation
 │   │   ├── rag_service.py     # RAG chat implementation
 │   │   └── vector_store.py    # Vector embeddings management
 │   ├── server.py              # FastAPI app
@@ -318,7 +307,6 @@ FinSights/
 │   │   ├── pages/             # React pages
 │   │   ├── components/        # React components
 │   │   │   ├── Chat/          # Chat interface components
-│   │   │   ├── Suggestions/   # Suggestions display
 │   │   │   └── ...
 │   │   ├── services/          # API client
 │   │   └── App.jsx            # Main app
@@ -357,12 +345,7 @@ FinSights/
      - Other Important Highlights
    - Switching sections is instant (cached document)
 
-5. **View Dynamic Suggestions**
-   - AI-generated insights appear in the suggestions panel
-   - Key metrics and recommendations highlighted
-   - Actionable intelligence extracted from the document
-
-6. **Chat with Your Document (RAG)**
+5. **Chat with Your Document (RAG)**
    - Use the chat interface to ask questions about the document
    - System retrieves relevant sections and provides context-aware answers
    - Ask follow-up questions for deeper insights
@@ -371,11 +354,11 @@ FinSights/
      - "What risks are mentioned in this document?"
      - "What is the projected growth rate?"
 
-7. **Export Results**
+6. **Export Results**
    - Click "Export as PDF" button
    - Save formatted summary to your computer
 
-8. **View History**
+7. **View History**
    - All previous summaries in chat-like history
    - Scroll through past analyses
    - Re-explore or export any summary
