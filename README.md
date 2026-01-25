@@ -15,7 +15,6 @@ AI-powered financial document analysis with intelligent section-based summarizat
 - [Get Started](#get-started)
   - [Prerequisites](#prerequisites)
   - [Quick Start](#quick-start)
-- [Features](#features)
 - [Project Structure](#project-structure)
 - [Usage Guide](#usage-guide)
 - [Environment Variables](#environment-variables)
@@ -27,7 +26,7 @@ AI-powered financial document analysis with intelligent section-based summarizat
 
 ## Project Overview
 
-**FinSights** is an intelligent financial document analysis platform that processes text and financial documents (PDF, DOCX) to generate comprehensive summaries with dynamically generated sections.
+**FinSights** is an intelligent financial document analysis platform that processes financial documents (PDF, DOCX) to generate comprehensive summaries with dynamically generated, document-driven sections and an interactive chat interface for context-aware analysis.
 
 ### How It Works
 
@@ -248,72 +247,34 @@ docker compose down
 
 ---
 
-## Features (Advanced)
-
-**Backend**
-
-- Multiple input format support (text, PDF, DOCX)
-- PDF text extraction with OCR support for image-based PDFs using pytesseract
-- DOCX document processing with python-docx
-- Dynamic section detection based on document content analysis
-- Section-wise AI-powered summarization using OpenAI's GPT-4o-mini model
-- Intelligent context-aware analysis for each generated section
-- **RAG-Based Chat**: Retrieval Augmented Generation (RAG) implementation for accurate question-answering about document content
-  - Vector embeddings for semantic search
-  - Context-aware response generation
-  - Real-time conversation history
-- Smart document caching system (1-hour TTL, up to 25 documents) to avoid reprocessing
-- File validation and size limits (PDF/DOCX: 50 MB)
-- Page limit protection (max 100 pages per PDF) to prevent timeouts
-- Streaming response support for optimal performance
-- CORS enabled for web integration
-- Comprehensive error handling and logging
-- Health check endpoints
-- Modular architecture (routes + services + LLM service + document service + section detector + RAG chat service)
-
-**Frontend**
-
-- Clean, intuitive interface with tab-based input selection (Text / File)
-- Drag-and-drop file upload capability
-- Dynamic section detection display showing available financial sections
-- Real-time summary generation with clickable financial section chips
-- Section-wise summary exploration without re-uploading
-- **Interactive Chat Interface**: RAG-powered chat for asking questions about the document with context-aware responses
-- Chat-like history view of all summaries
-- PDF export functionality for generated summaries
-- Mobile-responsive design with Tailwind CSS
-- Built with Vite for fast development and hot module replacement
-
----
 
 ## Project Structure
 
 ```
 FinSights/
 ├── backend/
-│   ├── api/
-│   │   └── routes.py          # API endpoints (summaries, suggestions, chat)
-│   ├── services/
-│   │   ├── llm_service.py     # OpenAI integration
-│   │   ├── pdf_service.py     # Document processing
-│   │   ├── rag_service.py     # RAG chat implementation
-│   │   └── vector_store.py    # Vector embeddings management
-│   ├── server.py              # FastAPI app
-│   ├── config.py              # Configuration
-│   ├── requirements.txt        # Python dependencies
-│   └── Dockerfile             # Backend container
+│ ├── api/
+│ │ └── routes.py        # API endpoints (document upload, summaries, sections)
+│ ├── services/
+│ │ ├── llm_service.py   # OpenAI LLM integration and section summarization
+│ │ ├── pdf_service.py    # PDF/DOCX extraction and OCR handling
+│ │ ├── rag_service.py    # Document-aware RAG logic (doc_id based)
+│ │ └── vector_store.py    # In-memory ephemeral vector store
+│ ├── server.py            # FastAPI application entry point
+│ ├── config.py             # Environment and app configuration
+│ ├── requirements.txt      # Python dependencies
+│ └── Dockerfile           # Backend container
 ├── frontend/
-│   ├── src/
-│   │   ├── pages/             # React pages
-│   │   ├── components/        # React components
-│   │   │   ├── Chat/          # Chat interface components
-│   │   │   └── ...
-│   │   ├── services/          # API client
-│   │   └── App.jsx            # Main app
-│   ├── package.json           # npm dependencies
-│   └── Dockerfile             # Frontend container
-├── docker-compose.yml         # Service orchestration
-└── README.md                  # This file
+│ ├── src/
+│ │ ├── pages/
+│ │ │ └── Generate.jsx     # Main document upload and section analysis page
+│ │ ├── components/        # Reusable UI components
+│ │ ├── services/           # API client utilities
+│ │ └── App.jsx            # Application root
+│ ├── package.json         # npm dependencies
+│ └── Dockerfile          # Frontend container
+├── docker-compose.yml    # Service orchestration
+└── README.md             # Project documentation
 ```
 
 ---
@@ -336,14 +297,10 @@ FinSights/
    - View comprehensive financial summary
 
 4. **Explore Financial Sections**
-   - Click any section chip to view detailed analysis:
-     - Financial Performance
-     - Key Metrics
-     - Risks
-     - Opportunities
-     - Outlook / Guidance
-     - Other Important Highlights
-   - Switching sections is instant (cached document)
+- Click any dynamically generated section chip to view detailed analysis.
+- Sections are created automatically based on the document content and are not predefined.
+- For example: Financial Performance, Key Metrics, Risks, Opportunities, Outlook / Guidance, and Other Important Highlights.
+- Switching sections is instant (cached document).
 
 5. **Chat with Your Document (RAG)**
    - Use the chat interface to ask questions about the document
@@ -378,17 +335,28 @@ Configure the application behavior using environment variables in `backend/.env`
 
 | Variable | Description | Default | Type |
 |----------|-------------|---------|------|
-| `OPENAI_API_KEY` | OpenAI API key for GPT access (REQUIRED) | - | string |
-| `OPENAI_MODEL` | GPT model version to use | `gpt-4o-mini` | string |
-| `LLM_TEMPERATURE` | Model creativity level (0.0-2.0, lower = deterministic) | `0.2` | float |
-| `LLM_MAX_TOKENS` | Maximum tokens per summary response | `900` | integer |
-| `CACHE_MAX_DOCS` | Maximum documents in memory cache | `25` | integer |
+| `OPENAI_API_KEY` | OpenAI API key for LLM access (REQUIRED) | - | string |
+| `OPENAI_MODEL` | LLM model used for summarization and analysis | `gpt-4o-mini` | string |
+| `LLM_TEMPERATURE` | Model creativity level (0.0–2.0, lower = deterministic) | `0.2` | float |
+| `LLM_MAX_TOKENS` | Maximum tokens per response | `900` | integer |
+| `RAG_ENABLED` | Enable document-aware RAG flow | `true` | boolean |
+| `RAG_MODE` | RAG strategy used (`doc_id` = cached full-document context) | `doc_id` | string |
+| `RAG_TOP_K` | Number of top relevant context segments used internally | `5` | integer |
+| `EMBEDDING_MODEL` | Embedding model for internal relevance scoring (if applicable) | `text-embedding-3-small` | string |
+| `VECTOR_RESET_ON_UPLOAD` | Clear vector dataset when a new document is uploaded | `true` | boolean |
+| `VECTOR_RESET_ON_REFRESH` | Clear vector dataset when the client refreshes the site | `true` | boolean |
+| `CACHE_MAX_DOCS` | Maximum documents stored in memory cache | `25` | integer |
 | `CACHE_TTL_SECONDS` | Cache time-to-live in seconds | `3600` | integer |
 | `SERVICE_PORT` | Backend API port | `8000` | integer |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` | string |
 | `CORS_ORIGINS` | Allowed CORS origins (comma-separated or `*`) | `*` | string |
 | `MAX_PDF_PAGES` | Maximum PDF pages to process | `100` | integer |
 | `MAX_PDF_SIZE` | Maximum PDF file size in bytes | `52428800` | integer |
+
+**Note:**  
+This blueprint uses a **document-cached RAG approach without static chunking**.  
+- The full extracted document is cached by `doc_id` for fast section switching.  
+- When a new document is uploaded or the client is refreshed, the in-memory vector dataset is automatically cleared to prevent context leakage across documents.
 
 
 
@@ -399,23 +367,32 @@ Configure the application behavior using environment variables in `backend/.env`
 
 ### Backend
 - **Framework**: FastAPI (Python web framework)
-- **AI/LLM**: OpenAI GPT-4o-mini API
-- **Document Processing**: 
+- **AI / LLM**: OpenAI GPT-4o-mini (document-aware analysis)
+- **RAG Architecture**: In-memory, document-cached RAG using `doc_id` (no static chunking)
+- **Embeddings**: OpenAI embeddings (used internally for relevance scoring when required)
+- **Document Processing**:
   - pypdf (PDF text extraction)
   - python-docx (DOCX processing)
   - pdf2image + pytesseract (OCR for image-based PDFs)
-- **Async**: Uvicorn ASGI server
-- **Config**: Python-dotenv for environment management
+- **State Management**:
+  - In-memory document cache
+  - Ephemeral vector dataset (cleared on new upload or client refresh)
+- **Async Server**: Uvicorn (ASGI)
+- **Config Management**: python-dotenv for environment variables
 
 ### Frontend
 - **Framework**: React 18 with React Router
 - **Build Tool**: Vite (fast bundler)
 - **Styling**: Tailwind CSS + PostCSS
 - **UI Components**: Lucide React icons
+- **RAG UX**:
+  - Dynamic, document-driven section chips
+  - Instant section switching using cached context
 - **Export**: jsPDF for PDF generation
 - **Notifications**: react-hot-toast
 
 ---
+
 
 ## Troubleshooting
 
