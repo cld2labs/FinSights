@@ -197,3 +197,67 @@ export const generateInitialSummary = async (formData) => {
 export const generateSectionSummary = async (formData, section) => {
   return generateSummaryJson(withModeAndSection(formData, 'financial_section', section));
 };
+
+/**
+ * RAG status: GET /v1/rag/status?doc_id=...
+ */
+export const getRagStatus = async (docId) => {
+  const id = (docId || '').trim();
+  if (!id) return { ready: false };
+
+  const response = await fetch(`${BACKEND_ENDPOINT}/v1/rag/status?doc_id=${encodeURIComponent(id)}`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`RAG Status Error: ${response.status} - ${errorText}`);
+  }
+
+  return response.json();
+};
+
+/**
+ * RAG chat: POST /v1/rag/chat (doc_id + message)
+ */
+export const ragChat = async ({ docId, message, maxTokens = 500, temperature = 0.2 }) => {
+  const fd = new FormData();
+  fd.set('doc_id', (docId || '').trim());
+  fd.set('message', (message || '').trim());
+  fd.set('max_tokens', String(maxTokens));
+  fd.set('temperature', String(temperature));
+
+  const response = await fetch(`${BACKEND_ENDPOINT}/v1/rag/chat`, {
+    method: 'POST',
+    body: fd,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`RAG Chat Error: ${response.status} - ${errorText}`);
+  }
+
+  return response.json();
+};
+/**
+ * Delete vectors: DELETE /v1/vectors/{doc_id}
+ * Clean up old vector embeddings before uploading a new document
+ */
+export const deleteVectors = async (docId) => {
+  const id = (docId || '').trim();
+  if (!id) return { status: 'skipped' };
+
+  try {
+    const response = await fetch(`${BACKEND_ENDPOINT}/v1/vectors/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to delete vectors for ${id}: ${response.status}`);
+      return { status: 'failed' };
+    }
+
+    return response.json();
+  } catch (e) {
+    console.warn(`Vector cleanup error: ${e.message}`);
+    return { status: 'error', error: e.message };
+  }
+};
