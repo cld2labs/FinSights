@@ -158,6 +158,13 @@ class LLMService:
             "doc_key": dk,
             # list of {"title": str, "hint": str} created during initial summary
             "sections": None,
+
+            # ---- RAG indexing state (for chat) ----
+            "index_status": "pending",   # pending | ready | failed
+            "chunk_count": 0,
+            "index_error": "",
+            "index_started_at": None,
+            "index_finished_at": None,
         }
         return doc_id
 
@@ -315,6 +322,51 @@ Document:
             "If you are uncertain, state it clearly.\n"
             "Output must be plain text only (no markdown emphasis: no **, *, _).\n"
         )
+    def chat_with_context(
+        self,
+        question: str,
+        context: str,
+        max_tokens: int = 500,
+        temperature: float = 0.2,
+    ) -> str:
+        """
+        Answer a user question using ONLY the retrieved context.
+        If the answer is not supported by the context, say so.
+        """
+        self._ensure_initialized()
+
+        q = (question or "").strip()
+        ctx = (context or "").strip()
+
+        if not q:
+            return "Please enter a question."
+
+        system_prompt = (
+            self._base_system_prompt()
+            + "\nYou are answering questions about an uploaded document.\n"
+              "Use ONLY the provided CONTEXT.\n"
+              "If the answer is not in the context, say you cannot find it.\n"
+              "Keep the response concise and readable.\n"
+        )
+
+        user_prompt = f"""CONTEXT:
+{ctx}
+
+QUESTION:
+{q}
+
+Answer using only the context.
+"""
+
+        resp = self._call_chat(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            max_tokens=max_tokens,
+            temperature=max(0.0, min(float(temperature), 0.5)),
+            stream=False,
+        )
+        return _normalize_money(clean_text(resp.choices[0].message.content or ""))
+
 
     # ----------------------------
     # Core helpers

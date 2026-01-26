@@ -5,7 +5,25 @@ import { jsPDF } from 'jspdf';
 
 import TextInput from '../components/TextInput';
 import FileUpload from '../components/FileUpload';
-import { generateSummaryJson, cloneFormData } from '../services/api';
+import { generateSummaryJson, cloneFormData, getRagStatus, ragChat, deleteVectors } from '../services/api';
+
+// Helper function for streaming text effect
+const streamText = (text, onUpdate, speedMs = 20) => {
+  let index = 0;
+  let currentText = '';
+  
+  const interval = setInterval(() => {
+    if (index < text.length) {
+      currentText += text[index];
+      onUpdate(currentText);
+      index++;
+    } else {
+      clearInterval(interval);
+    }
+  }, speedMs);
+  
+  return () => clearInterval(interval);
+};
 
 export const Generate = () => {
   const [activeTab, setActiveTab] = useState('text');
@@ -19,11 +37,18 @@ export const Generate = () => {
   // Dynamic section chips returned by backend (2-5)
   const [dynamicSections, setDynamicSections] = useState([]);
 
-  // Chat-like history
+  // Chat-like history (summary + section summaries)
   const [history, setHistory] = useState([]);
 
   const [isLoadingInitial, setIsLoadingInitial] = useState(false);
   const [activeChipLoading, setActiveChipLoading] = useState('');
+
+  // RAG UI state
+  const [ragReady, setRagReady] = useState(false);
+  const [ragChecking, setRagChecking] = useState(false);
+  const [ragQuestion, setRagQuestion] = useState('');
+  const [ragLoading, setRagLoading] = useState(false);
+  const [chatFocused, setChatFocused] = useState(false);
 
   const bottomRef = useRef(null);
 
@@ -33,10 +58,7 @@ export const Generate = () => {
   ];
 
   // Fallback chips if backend does not return sections
-  const fallbackSectionOptions = useMemo(
-    () => ['General Summary', 'Key Extracts'],
-    []
-  );
+  const fallbackSectionOptions = useMemo(() => ['General Summary', 'Key Extracts'], []);
 
   const sectionOptions = useMemo(() => {
     if (Array.isArray(dynamicSections) && dynamicSections.length >= 2) return dynamicSections;
@@ -45,7 +67,7 @@ export const Generate = () => {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [history, isLoadingInitial, activeChipLoading, dynamicSections]);
+  }, [history, isLoadingInitial, activeChipLoading, dynamicSections, ragLoading, ragReady]);
 
   // ----------------------------
   // Frontend-only: remove duplicated section heading from LLM output
@@ -174,11 +196,41 @@ export const Generate = () => {
     setDocId('');
     setDynamicSections([]);
     setLastFormData(null);
+
+    // RAG
+    setRagReady(false);
+    setRagChecking(false);
+    setRagQuestion('');
+    setRagLoading(false);
+  };
+
+  const refreshRagStatus = async (id) => {
+    const cleanId = (id || '').trim();
+    if (!cleanId) {
+      setRagReady(false);
+      return;
+    }
+
+    setRagChecking(true);
+    try {
+      const status = await getRagStatus(cleanId);
+      setRagReady(!!status?.ready);
+    } catch (e) {
+      console.error('RAG status error:', e);
+      setRagReady(false);
+    } finally {
+      setRagChecking(false);
+    }
   };
 
   const handleSubmit = async (formData) => {
     setIsLoadingInitial(true);
-
+    
+    // Clean up old vectors before submitting new document
+    if (docId) {
+      await deleteVectors(docId);
+    }
+    
     resetRunState();
 
     // Store lastFormData only for text flow
@@ -190,7 +242,11 @@ export const Generate = () => {
 
       const json = await generateSummaryJson(fd);
 
-      if (json.doc_id) setDocId(json.doc_id);
+      if (json.doc_id) {
+        setDocId(json.doc_id);
+        // kick off RAG status check (best-effort)
+        refreshRagStatus(json.doc_id);
+      }
 
       // dynamic sections from backend (expected field)
       // Accept either: json.sections = ["A","B"] OR json.sections = [{title:"A"},...]
@@ -212,14 +268,29 @@ export const Generate = () => {
       const rawText = json.text || json.output_text || '';
       const text = stripLeadingHeading(rawText, 'Generalized Summary');
 
+      // Add response with streaming effect
       setHistory([
         {
           role: 'assistant',
           title: 'Generalized Summary',
-          text,
+          text: '', // Start with empty text
           ts: Date.now(),
         },
       ]);
+
+      // Stream the text
+      streamText(text, (streamedText) => {
+        setHistory((prev) => {
+          const updated = [...prev];
+          if (updated.length > 0) {
+            updated[updated.length - 1] = {
+              ...updated[updated.length - 1],
+              text: streamedText,
+            };
+          }
+          return updated;
+        });
+      }, 15);
 
       toast.success('Initial summary generated. Select a section below.');
     } catch (error) {
@@ -236,7 +307,8 @@ export const Generate = () => {
       toast.error('Please upload a document or paste text first.');
       return;
     }
-    if (activeChipLoading || isLoadingInitial) return;
+    if (activeChipLoading || isLoadingInitial || ragLoading) return;
+    setChatFocused(false); // Ensure chat is unfocused when clicking section
 
     setHistory((prev) => [...prev, { role: 'user', text: section, ts: Date.now() }]);
     setActiveChipLoading(section);
@@ -260,15 +332,31 @@ export const Generate = () => {
       const rawText = json.text || json.output_text || '';
       const text = stripLeadingHeading(rawText, section);
 
+      // Add response with streaming effect
       setHistory((prev) => [
         ...prev,
         {
           role: 'assistant',
           title: section,
-          text,
+          text: '', // Start with empty text
           ts: Date.now(),
         },
       ]);
+
+      // Stream the text
+      const lastIndex = setHistory.length - 1;
+      streamText(text, (streamedText) => {
+        setHistory((prev) => {
+          const updated = [...prev];
+          if (updated.length > 0) {
+            updated[updated.length - 1] = {
+              ...updated[updated.length - 1],
+              text: streamedText,
+            };
+          }
+          return updated;
+        });
+      }, 15);
 
       toast.success(`${section} generated successfully!`);
     } catch (error) {
@@ -289,11 +377,87 @@ export const Generate = () => {
     }
   };
 
+  const handleAskRag = async (e) => {
+    e?.preventDefault?.();
+
+    const q = (ragQuestion || '').trim();
+    if (!docId) {
+      toast.error('Upload a document or paste text first.');
+      return;
+    }
+    if (!q) {
+      toast.error('Enter a question.');
+      return;
+    }
+    if (isLoadingInitial || activeChipLoading || ragLoading) return;
+
+    setHistory((prev) => [...prev, { role: 'user', text: q, ts: Date.now() }]);
+    setRagLoading(true);
+
+    try {
+      const resp = await ragChat({ docId, message: q });
+      const answer = resp?.text || resp?.answer || resp?.output_text || 'No answer returned.';
+
+      // Add response with streaming effect
+      setHistory((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          title: 'Document Q&A',
+          text: '', // Start with empty text
+          ts: Date.now(),
+        },
+      ]);
+
+      // Stream the text
+      streamText(String(answer), (streamedText) => {
+        setHistory((prev) => {
+          const updated = [...prev];
+          if (updated.length > 0) {
+            updated[updated.length - 1] = {
+              ...updated[updated.length - 1],
+              text: streamedText,
+            };
+          }
+          return updated;
+        });
+      }, 15);
+
+      setRagQuestion('');
+      setChatFocused(false); // Show sections again after answer
+    } catch (err) {
+      console.error('RAG chat error:', err);
+      toast.error('Failed to answer. Please try again.');
+
+      setHistory((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          title: 'Document Q&A',
+          text: 'Failed to answer. Please try again.',
+          ts: Date.now(),
+        },
+      ]);
+    } finally {
+      setRagLoading(false);
+    }
+  };
+
   const renderChat = () => {
     if (isLoadingInitial && history.length === 0) {
       return (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="flex items-center justify-start py-12 px-4">
+          <div className="max-w-[85%] rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 px-5 py-4 text-gray-900 shadow-sm ring-1 ring-primary-100">
+            <div className="text-base font-semibold text-gray-800 mb-3">Analyzing Document</div>
+            <div className="flex items-center gap-2">
+              <div className="text-sm text-gray-600">Gathering information and generating summary</div>
+              <div className="flex gap-1">
+                <span className="inline-block w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="inline-block w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="inline-block w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
@@ -345,12 +509,17 @@ export const Generate = () => {
           );
         })}
 
+        {/* Chips */}
         {history.length > 0 && (
-          <div className="pt-2">
+          <div
+            className={`pt-2 transition-all duration-500 ease-in-out ${
+              chatFocused ? 'opacity-0 max-h-0 overflow-hidden' : 'opacity-100 max-h-96'
+            }`}
+          >
             <div className="flex flex-wrap items-center justify-center gap-3">
               {sectionOptions.map((label) => {
                 const loading = activeChipLoading === label;
-                const disabled = isLoadingInitial || !!activeChipLoading;
+                const disabled = isLoadingInitial || !!activeChipLoading || ragLoading;
 
                 return (
                   <button
@@ -364,7 +533,11 @@ export const Generate = () => {
                     title={label}
                   >
                     {loading ? (
-                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600" />
+                      <div className="flex items-center gap-1">
+                        <span className="inline-block w-1.5 h-1.5 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                        <span className="inline-block w-1.5 h-1.5 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                        <span className="inline-block w-1.5 h-1.5 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                      </div>
                     ) : (
                       <span className="inline-block h-2 w-2 rounded-full bg-primary-600" />
                     )}
@@ -375,8 +548,13 @@ export const Generate = () => {
             </div>
 
             {activeChipLoading && (
-              <div className="mt-3 text-center text-sm text-gray-600">
-                Generating: <span className="font-medium">{activeChipLoading}</span>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <div className="text-sm text-gray-600">Generating: <span className="font-medium">{activeChipLoading}</span></div>
+                <div className="flex gap-1">
+                  <span className="inline-block w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="inline-block w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="inline-block w-2 h-2 bg-primary-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                </div>
               </div>
             )}
           </div>
@@ -403,7 +581,7 @@ export const Generate = () => {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`tab ${activeTab === tab.id ? 'tab-active' : ''}`}
-                  disabled={isLoadingInitial || !!activeChipLoading}
+                  disabled={isLoadingInitial || !!activeChipLoading || ragLoading}
                 >
                   {tab.label}
                 </button>
@@ -411,13 +589,13 @@ export const Generate = () => {
             </div>
 
             {activeTab === 'text' && (
-              <TextInput onSubmit={handleSubmit} isLoading={isLoadingInitial || !!activeChipLoading} />
+              <TextInput onSubmit={handleSubmit} isLoading={isLoadingInitial || !!activeChipLoading || ragLoading} />
             )}
 
             {activeTab === 'file' && (
               <FileUpload
                 onSubmit={handleSubmit}
-                isLoading={isLoadingInitial || !!activeChipLoading}
+                isLoading={isLoadingInitial || !!activeChipLoading || ragLoading}
                 acceptedTypes={['.pdf', '.doc', '.docx']}
                 fileType="text"
                 title="Upload Document"
@@ -452,6 +630,40 @@ export const Generate = () => {
             </div>
 
             <div className="min-h-[400px] max-h-[700px] overflow-y-auto">{renderChat()}</div>
+
+            {/* Chat Input */}
+            <div className="mt-4">
+              <form onSubmit={handleAskRag} className="flex flex-col gap-3 sm:flex-row">
+                <input
+                  value={ragQuestion}
+                  onChange={(e) => setRagQuestion(e.target.value)}
+                  onFocus={() => setChatFocused(true)}
+                  onBlur={() => setChatFocused(false)}
+                  placeholder="Ask a question..."
+                  disabled={!docId || ragLoading || isLoadingInitial || !!activeChipLoading}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-primary-300"
+                />
+                <button
+                  type="submit"
+                  disabled={!docId || ragLoading || isLoadingInitial || !!activeChipLoading}
+                  className={[
+                    'inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm',
+                    !docId || ragLoading || isLoadingInitial || !!activeChipLoading
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'hover:bg-primary-700',
+                  ].join(' ')}
+                >
+                  {ragLoading ? (
+                    <div className="flex items-center gap-1">
+                      <span className="inline-block w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                      <span className="inline-block w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                      <span className="inline-block w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                    </div>
+                  ) : null}
+                  Ask
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
