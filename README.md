@@ -462,7 +462,3 @@ This project is licensed under our [LICENSE](./LICENSE.md) file for details.
 For full disclaimer details, see [DISCLAIMER.md](./DISCLAIMER.md)
 
 ---
-
-
-
-[Back to Top](#-finsights---financial-document-summarization-ai-blueprint)
