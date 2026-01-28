@@ -14,6 +14,7 @@ import config
 from models import HealthResponse
 
 from services import pdf_service, llm_service
+from services.rag_index_service import rag_index_service  # <-- ADDED
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,97 @@ async def health_check():
 
     return response
 
+@router.get("/v1/rag/status")
+async def rag_status(doc_id: str):
+    """
+    Returns RAG index status for a given doc_id.
+    Frontend can poll this and enable Chat only when ready.
+    """
+    try:
+        status = rag_index_service.get_status(doc_id.strip())
+        return {"doc_id": doc_id.strip(), **status}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+@router.post("/v1/rag/chat")
+async def rag_chat(
+    doc_id: str = Form(""),
+    message: str = Form(""),
+    max_tokens: int = Form(500),
+    temperature: float = Form(0.2),
+):
+    """
+    RAG chat endpoint:
+    - Retrieves top chunks from in-memory vector index for doc_id
+    - Calls LLM using only retrieved context
+    """
+    try:
+        doc_id_clean = (doc_id or "").strip()
+        user_msg = (message or "").strip()
+
+        if not doc_id_clean:
+            raise HTTPException(status_code=400, detail="doc_id is required")
+        if not user_msg:
+            raise HTTPException(status_code=400, detail="message is required")
+
+        # Ensure indexing is ready
+        st = rag_index_service.get_status(doc_id_clean)
+        if not st.get("ready"):
+            return {
+                "doc_id": doc_id_clean,
+                "ready": False,
+                "answer": "Indexing is still in progress. Please try again in a moment.",
+                "retrieved_chunks": [],
+            }
+
+        # Retrieve context (top-k chunks)
+        retrieved = rag_index_service.query(doc_id_clean, user_msg, top_k=4)
+        context = "\n\n".join([r.get("text", "") for r in retrieved if r.get("text")])
+
+        # Ask LLM with context only
+        answer = llm_service.chat_with_context(
+            question=user_msg,
+            context=context,
+            max_tokens=int(max_tokens),
+            temperature=float(temperature),
+        )
+
+        return {
+            "doc_id": doc_id_clean,
+            "ready": True,
+            "answer": answer,
+            "retrieved_chunks": [
+                {
+                    "chunk_id": r.get("chunk_id"),
+                    "score": r.get("score"),
+                }
+                for r in retrieved
+            ],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"RAG chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"RAG chat error: {str(e)}")
+
+@router.delete("/v1/vectors/{doc_id}")
+async def delete_vectors(doc_id: str):
+    """
+    Delete all vector embeddings for a given doc_id.
+    Called when cleaning up before uploading a new document.
+    """
+    try:
+        doc_id_clean = (doc_id or "").strip()
+        if not doc_id_clean:
+            raise HTTPException(status_code=400, detail="doc_id is required")
+        
+        from services.vector_store import vector_store
+        vector_store.clear_doc(doc_id_clean)
+        
+        return {"doc_id": doc_id_clean, "status": "deleted", "message": "Vector data cleared"}
+    except Exception as e:
+        logger.error(f"Vector deletion error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Vector deletion error: {str(e)}")
 
 @router.post("/v1/docsum")
 async def summarize_document(
@@ -124,6 +216,9 @@ async def summarize_document(
 
             # Background prefetch (no-op but keeps compatibility)
             background_tasks.add_task(llm_service.prefetch_doc, created_doc_id)
+
+            # RAG indexing in background (does not block summary)
+            background_tasks.add_task(rag_index_service.index_doc, created_doc_id)
 
             if mode == "financial_section" and section.strip():
                 # If user explicitly requested a section on first call
@@ -217,6 +312,9 @@ async def summarize_document(
                     # Background prefetch (no-op but kept for compatibility)
                     background_tasks.add_task(llm_service.prefetch_doc, created_doc_id)
 
+                    # RAG indexing in background (does not block summary)
+                    background_tasks.add_task(rag_index_service.index_doc, created_doc_id)
+
                     # If request is for a specific section, return that section immediately
                     if mode == "financial_section" and section.strip():
                         section_out = llm_service.summarize_by_doc_id(
@@ -264,6 +362,9 @@ async def summarize_document(
                     created_doc_id = llm_service.create_doc(text_content)
 
                     background_tasks.add_task(llm_service.prefetch_doc, created_doc_id)
+
+                    # RAG indexing in background (does not block summary)
+                    background_tasks.add_task(rag_index_service.index_doc, created_doc_id)
 
                     if mode == "financial_section" and section.strip():
                         section_out = llm_service.summarize_by_doc_id(
