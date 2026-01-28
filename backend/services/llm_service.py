@@ -236,6 +236,91 @@ class LLMService:
             obj["ts"] = time.time()
         return
 
+    def validate_finance_document(self, text: str) -> dict:
+        """
+        Validate if the document contains finance-related information.
+        
+        Returns:
+            {
+                "is_finance_related": bool,
+                "confidence": float (0.0 to 1.0),
+                "message": str
+            }
+        """
+        self._ensure_initialized()
+        
+        if not text or not text.strip():
+            return {
+                "is_finance_related": False,
+                "confidence": 1.0,
+                "message": "Document is empty"
+            }
+        
+        # Use first 2000 characters for quick validation
+        sample_text = text[:2000]
+        
+        system_prompt = (
+            "You are a document classifier.\n"
+            "Your task is to determine if a document contains finance-related information.\n"
+            "Finance-related documents include: invoices, receipts, bank statements, financial reports, "
+            "tax documents, expense reports, budgets, balance sheets, income statements, payroll records, "
+            "loan documents, investment statements, insurance documents, accounting records, audit reports, "
+            "financial forecasts, quarterly/annual reports, expense tracking, and similar financial documents.\n"
+            "Respond with ONLY valid JSON (no markdown, no code blocks):\n"
+            '{"is_finance": true/false, "confidence": 0.0-1.0, "reason": "brief reason"}\n'
+        )
+        
+        user_prompt = f"""Analyze this document sample and determine if it contains finance-related information:
+
+{sample_text}
+
+Respond with ONLY the JSON object."""
+        
+        try:
+            resp = self._call_chat(
+                system_prompt,
+                user_prompt,
+                max_tokens=200,
+                temperature=0.0,
+                stream=False,
+            )
+            
+            response_text = resp.choices[0].message.content or ""
+            response_text = response_text.strip()
+            
+            # Remove markdown code blocks if present
+            if response_text.startswith("```"):
+                response_text = response_text.split("```")[1]
+                if response_text.startswith("json"):
+                    response_text = response_text[4:]
+                response_text = response_text.strip()
+            if response_text.endswith("```"):
+                response_text = response_text[:-3].strip()
+            
+            result = json.loads(response_text)
+            
+            is_finance = result.get("is_finance", False)
+            confidence = float(result.get("confidence", 0.0))
+            reason = result.get("reason", "")
+            
+            # Clamp confidence to valid range
+            confidence = max(0.0, min(1.0, confidence))
+            
+            return {
+                "is_finance_related": bool(is_finance),
+                "confidence": confidence,
+                "message": reason
+            }
+            
+        except Exception as e:
+            logger.error(f"Finance document validation error: {str(e)}")
+            # On error, assume not finance to be safe
+            return {
+                "is_finance_related": False,
+                "confidence": 0.0,
+                "message": f"Validation error: {str(e)}"
+            }
+
     def summarize_by_doc_id(
         self,
         doc_id: str,

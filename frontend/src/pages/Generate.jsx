@@ -248,6 +248,14 @@ export const Generate = () => {
         refreshRagStatus(json.doc_id);
       }
 
+      // Check if document is finance-related
+      if (json.is_finance_related === false) {
+        toast.error(json.validation_message || 'This document does not contain any finance information. I cannot summarize this document.');
+        resetRunState();
+        setIsLoadingInitial(false);
+        return;
+      }
+
       // dynamic sections from backend (expected field)
       // Accept either: json.sections = ["A","B"] OR json.sections = [{title:"A"},...]
       const secs = json.sections || json.section_options || [];

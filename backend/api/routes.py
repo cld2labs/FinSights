@@ -127,6 +127,110 @@ async def delete_vectors(doc_id: str):
         logger.error(f"Vector deletion error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Vector deletion error: {str(e)}")
 
+@router.get("/v1/vectors/{doc_id}")
+async def get_vectors(doc_id: str):
+    """
+    Get all vector chunks for a specific document.
+    Useful for debugging/inspecting the RAG dataset.
+    
+    Returns:
+    {
+        "doc_id": str,
+        "total_chunks": int,
+        "chunks": [
+            {
+                "chunk_id": str,
+                "text": str (first 200 chars),
+                "full_text": str,
+                "embedding_size": int,
+                "meta": dict
+            }
+        ]
+    }
+    """
+    try:
+        doc_id_clean = (doc_id or "").strip()
+        if not doc_id_clean:
+            raise HTTPException(status_code=400, detail="doc_id is required")
+        
+        from services.vector_store import vector_store
+        
+        # Access the internal store to get chunks
+        with vector_store._lock:
+            chunks = list(vector_store._store.get(doc_id_clean, []))
+        
+        if not chunks:
+            return {
+                "doc_id": doc_id_clean,
+                "total_chunks": 0,
+                "chunks": []
+            }
+        
+        result_chunks = []
+        for chunk in chunks:
+            result_chunks.append({
+                "chunk_id": chunk.chunk_id,
+                "text_preview": chunk.text[:200] + ("..." if len(chunk.text) > 200 else ""),
+                "full_text": chunk.text,
+                "text_length": len(chunk.text),
+                "embedding_size": len(chunk.embedding) if chunk.embedding else 0,
+                "meta": chunk.meta or {}
+            })
+        
+        return {
+            "doc_id": doc_id_clean,
+            "total_chunks": len(chunks),
+            "chunks": result_chunks
+        }
+        
+    except Exception as e:
+        logger.error(f"Vector retrieval error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Vector retrieval error: {str(e)}")
+
+@router.get("/v1/vectors")
+async def list_all_vectors():
+    """
+    List all documents with vectors in the store.
+    
+    Returns:
+    {
+        "total_docs": int,
+        "documents": [
+            {
+                "doc_id": str,
+                "chunk_count": int,
+                "total_text_chars": int
+            }
+        ]
+    }
+    """
+    try:
+        from services.vector_store import vector_store
+        
+        with vector_store._lock:
+            doc_ids = list(vector_store._store.keys())
+        
+        documents = []
+        for doc_id in doc_ids:
+            with vector_store._lock:
+                chunks = list(vector_store._store.get(doc_id, []))
+            
+            total_chars = sum(len(chunk.text) for chunk in chunks)
+            documents.append({
+                "doc_id": doc_id,
+                "chunk_count": len(chunks),
+                "total_text_chars": total_chars
+            })
+        
+        return {
+            "total_docs": len(documents),
+            "documents": documents
+        }
+        
+    except Exception as e:
+        logger.error(f"Vector listing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Vector listing error: {str(e)}")
+
 @router.post("/v1/docsum")
 async def summarize_document(
     background_tasks: BackgroundTasks,
@@ -336,10 +440,30 @@ async def summarize_document(
                         }
 
                     # Otherwise return fast initial summary (also discovers sections internally)
+                    # First validate if document is finance-related
+                    validation = llm_service.validate_finance_document(text_content)
+                    
+                    if not validation.get("is_finance_related"):
+                        logger.warning(f"Non-finance document detected for doc_id: {created_doc_id}")
+                        return {
+                            "doc_id": created_doc_id,
+                            "is_finance_related": False,
+                            "validation_message": "This document does not contain any finance information. I cannot summarize this document.",
+                            "confidence": validation.get("confidence", 0.0),
+                            "text": "",
+                            "summary": "",
+                            "word_count": 0,
+                            "char_count": 0,
+                            "mode": "financial_initial",
+                            "section": "",
+                            "sections": [],
+                        }
+                    
                     initial_summary = llm_service.initial_summary_first_chunk(created_doc_id)
                     sections = llm_service.get_doc_sections(created_doc_id) or []
                     return {
                         "doc_id": created_doc_id,
+                        "is_finance_related": True,
                         "text": initial_summary,
                         "summary": initial_summary,
                         "word_count": len(initial_summary.split()),
@@ -387,8 +511,29 @@ async def summarize_document(
 
                     initial_summary = llm_service.initial_summary_first_chunk(created_doc_id)
                     sections = llm_service.get_doc_sections(created_doc_id) or []
+                    
+                    # Validate if document is finance-related
+                    validation = llm_service.validate_finance_document(text_content)
+                    
+                    if not validation.get("is_finance_related"):
+                        logger.warning(f"Non-finance document detected for doc_id: {created_doc_id}")
+                        return {
+                            "doc_id": created_doc_id,
+                            "is_finance_related": False,
+                            "validation_message": "This document does not contain any finance information. I cannot summarize this document.",
+                            "confidence": validation.get("confidence", 0.0),
+                            "text": "",
+                            "summary": "",
+                            "word_count": 0,
+                            "char_count": 0,
+                            "mode": "financial_initial",
+                            "section": "",
+                            "sections": [],
+                        }
+                    
                     return {
                         "doc_id": created_doc_id,
+                        "is_finance_related": True,
                         "text": initial_summary,
                         "summary": initial_summary,
                         "word_count": len(initial_summary.split()),

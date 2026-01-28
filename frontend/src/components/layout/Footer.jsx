@@ -21,7 +21,7 @@ export const Footer = () => {
           </div>
 
           <p className="text-xs text-gray-500">
-            © 2025 Cloud2 Labs. All rights reserved.
+            © 2026 Cloud2 Labs. All rights reserved.
           </p>
         </div>
       </div>
