@@ -10,13 +10,13 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM nginxinc/nginx-unprivileged:alpine
 
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Create nginx config with increased file upload limit and no-cache headers
 RUN echo 'server { \
-    listen 80; \
+    listen 8080; \
     server_name localhost; \
     client_max_body_size 500M; \
     \
@@ -53,6 +53,8 @@ RUN echo 'server { \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+EXPOSE 8080
+
+USER 101
 
 CMD ["nginx", "-g", "daemon off;"]
