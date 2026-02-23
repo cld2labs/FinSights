@@ -377,7 +377,7 @@ Answer using only the context.
 
     @staticmethod
     def _doc_key(text: str) -> str:
-        return hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
+        return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
 
     @staticmethod
     def _normalize_section_title(title: str) -> str:
