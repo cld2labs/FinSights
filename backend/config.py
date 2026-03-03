@@ -1,5 +1,5 @@
 """
-Configuration settings for Doc-Sum Application
+Configuration settings for FinSights Application
 """
 
 import os
@@ -10,7 +10,38 @@ load_dotenv()
 
 # OpenAI Configuration (optional)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Optional fallback model when MODEL_NAME is not set
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+# Unified Provider Configuration (primary)
+API_ENDPOINT = os.getenv("API_ENDPOINT", "")
+API_TOKEN = os.getenv("API_TOKEN", "")
+MODEL_NAME = os.getenv("MODEL_NAME", "")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "")
+PROVIDER_NAME = os.getenv("PROVIDER_NAME", "")
+VERIFY_SSL = os.getenv("VERIFY_SSL", "true")
+LOCAL_URL_ENDPOINT = os.getenv("LOCAL_URL_ENDPOINT", "not-needed")
+EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "same")
+EMBEDDING_ENDPOINT = os.getenv("EMBEDDING_ENDPOINT", "")
+EMBEDDING_API = os.getenv("EMBEDDING_API", "")
+EMBEDDING_API_ENDPOINT = os.getenv("EMBEDDING_API_ENDPOINT", "")
+EMBEDDING_API_TOKEN = os.getenv("EMBEDDING_API_TOKEN", "")
+EMBEDDING_PROVIDER_NAME = os.getenv("EMBEDDING_PROVIDER_NAME", "")
+
+# Optional embedding overrides (advanced)
+OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+INFERENCE_EMBEDDING_MODEL_NAME = os.getenv("INFERENCE_EMBEDDING_MODEL_NAME", "")
+OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "")
+
+# Legacy compatibility (optional)
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "")
+INFERENCE_API_ENDPOINT = os.getenv("INFERENCE_API_ENDPOINT", "")
+INFERENCE_API_TOKEN = os.getenv("INFERENCE_API_TOKEN", "")
+INFERENCE_MODEL_NAME = os.getenv("INFERENCE_MODEL_NAME", "")
+OLLAMA_ENDPOINT = os.getenv("OLLAMA_ENDPOINT", "")
+OLLAMA_TOKEN = os.getenv("OLLAMA_TOKEN", "")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "")
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "")
 
 
 

@@ -8,20 +8,30 @@ import FileUpload from '../components/FileUpload';
 import { generateSummaryJson, cloneFormData, getRagStatus, ragChat, deleteVectors } from '../services/api';
 
 // Helper function for streaming text effect
-const streamText = (text, onUpdate, speedMs = 20) => {
+const streamText = (text, onUpdate, targetMs = 900, tickMs = 20) => {
+  const full = String(text || '');
+  if (!full) {
+    onUpdate('');
+    return () => {};
+  }
+  // Keep UI responsive: cap typing animation duration.
+  if (full.length <= 180) {
+    onUpdate(full);
+    return () => {};
+  }
+
   let index = 0;
-  let currentText = '';
-  
+  const steps = Math.max(1, Math.floor(targetMs / tickMs));
+  const chunkSize = Math.max(16, Math.ceil(full.length / steps));
   const interval = setInterval(() => {
-    if (index < text.length) {
-      currentText += text[index];
-      onUpdate(currentText);
-      index++;
-    } else {
-      clearInterval(interval);
+    if (index < full.length) {
+      index = Math.min(full.length, index + chunkSize);
+      onUpdate(full.slice(0, index));
+      return;
     }
-  }, speedMs);
-  
+    clearInterval(interval);
+  }, tickMs);
+
   return () => clearInterval(interval);
 };
 
@@ -344,7 +354,6 @@ export const Generate = () => {
       ]);
 
       // Stream the text
-      const lastIndex = setHistory.length - 1;
       streamText(text, (streamedText) => {
         setHistory((prev) => {
           const updated = [...prev];
