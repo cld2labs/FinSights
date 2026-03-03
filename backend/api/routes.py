@@ -4,6 +4,7 @@ Handles all HTTP endpoints
 """
 
 from fastapi import APIRouter, Form, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi.responses import PlainTextResponse
 from fastapi.responses import StreamingResponse
 from typing import Optional
 import os
@@ -14,7 +15,8 @@ import config
 from models import HealthResponse
 
 from services import pdf_service, llm_service
-from services.rag_index_service import rag_index_service  # <-- ADDED
+from services.rag.rag_index_service import rag_index_service
+from services.observability_service import observability_service
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +25,25 @@ router = APIRouter()
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    """Health check endpoint - OpenAI-only"""
+    """Health check endpoint"""
     llm_health = llm_service.health_check()
 
     response = {
         "status": "healthy" if llm_health.get("status") == "healthy" else "unhealthy",
         "service": config.APP_TITLE,
         "version": config.APP_VERSION,
-        "llm_provider": "OpenAI",
+        "llm_provider": llm_health.get("provider", llm_service.get_provider_name()),
     }
 
     return response
+
+
+@router.get("/v1/observability", response_class=PlainTextResponse)
+async def observability(limit: int = 100):
+    """
+    Plain text table with LLM token observability only.
+    """
+    return observability_service.render_table(limit=limit, llm_only=True)
 
 @router.get("/v1/rag/status")
 async def rag_status(doc_id: str):
@@ -46,11 +56,13 @@ async def rag_status(doc_id: str):
         return {"doc_id": doc_id.strip(), **status}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/v1/rag/chat")
 async def rag_chat(
     doc_id: str = Form(""),
     message: str = Form(""),
-    max_tokens: int = Form(500),
+    max_tokens: int = Form(220),
     temperature: float = Form(0.2),
 ):
     """
@@ -119,7 +131,7 @@ async def delete_vectors(doc_id: str):
         if not doc_id_clean:
             raise HTTPException(status_code=400, detail="doc_id is required")
         
-        from services.vector_store import vector_store
+        from services.rag.vector_store import vector_store
         vector_store.clear_doc(doc_id_clean)
         
         return {"doc_id": doc_id_clean, "status": "deleted", "message": "Vector data cleared"}

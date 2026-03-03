@@ -218,7 +218,7 @@ export const getRagStatus = async (docId) => {
 /**
  * RAG chat: POST /v1/rag/chat (doc_id + message)
  */
-export const ragChat = async ({ docId, message, maxTokens = 500, temperature = 0.2 }) => {
+export const ragChat = async ({ docId, message, maxTokens = 220, temperature = 0.2 }) => {
   const fd = new FormData();
   fd.set('doc_id', (docId || '').trim());
   fd.set('message', (message || '').trim());

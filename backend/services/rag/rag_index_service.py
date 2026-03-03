@@ -7,11 +7,8 @@ import uuid
 import logging
 from typing import List, Dict, Any
 
-import config
-from openai import OpenAI
-
-from services.llm_service import llm_service
-from services.vector_store import vector_store, VectorChunk
+from services.llm.llm_service import llm_service
+from .vector_store import vector_store, VectorChunk
 
 logger = logging.getLogger(__name__)
 
@@ -23,26 +20,12 @@ class RAGIndexService:
     """
 
     def __init__(self) -> None:
-        self._client: OpenAI | None = None
-        self.embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-
         # Chunking defaults (tune later)
         self.chunk_chars = int(os.getenv("RAG_CHUNK_CHARS", "1400"))
         self.chunk_overlap_chars = int(os.getenv("RAG_CHUNK_OVERLAP_CHARS", "220"))
 
         # Embedding batching (avoid huge requests)
         self.embed_batch_size = int(os.getenv("RAG_EMBED_BATCH_SIZE", "64"))
-
-    def _ensure_client(self) -> None:
-        if self._client is not None:
-            return
-        if not config.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY must be set for RAG indexing")
-        self._client = OpenAI(
-            api_key=config.OPENAI_API_KEY,
-            timeout=float(os.getenv("OPENAI_TIMEOUT", "60")),
-            max_retries=int(os.getenv("OPENAI_MAX_RETRIES", "2")),
-        )
 
     def _set_doc_index_state(
         self,
@@ -110,17 +93,7 @@ class RAGIndexService:
         return out
 
     def _embed_texts(self, texts: List[str]) -> List[List[float]]:
-        self._ensure_client()
-        assert self._client is not None
-
-        # OpenAI embeddings API accepts a list input.
-        resp = self._client.embeddings.create(
-            model=self.embedding_model,
-            input=texts,
-        )
-        # Preserve order
-        embeddings: List[List[float]] = [d.embedding for d in resp.data]
-        return embeddings
+        return llm_service.embed_texts(texts)
 
     def index_doc(self, doc_id: str) -> None:
         """

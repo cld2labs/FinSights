@@ -54,6 +54,12 @@ class InMemoryVectorStore:
         with self._lock:
             return len(self._store.get(doc_id, []))
 
+    def list_chunks(self, doc_id: str) -> List[VectorChunk]:
+        with self._lock:
+            chunks = list(self._store.get(doc_id, []))
+        chunks.sort(key=lambda c: int(c.meta.get("index", 0)) if isinstance(c.meta, dict) else 0)
+        return chunks
+
     def query(
         self,
         doc_id: str,
