@@ -845,7 +845,7 @@ Answer using only the context.
         out: List[str] = []
         seen = set()
         for p in parts:
-            key = hashlib.sha1(p.encode("utf-8", errors="ignore")).hexdigest()
+            key = hashlib.sha256(p.encode("utf-8", errors="ignore"), usedforsecurity=False).hexdigest()
             if key in seen:
                 continue
             seen.add(key)
@@ -865,7 +865,7 @@ Answer using only the context.
         for q in queries:
             ctx = self._retrieve_context(doc_id, query=q, top_k=top_k)
             for block in self._dedupe_text_blocks(ctx):
-                h = hashlib.sha1(block.encode("utf-8", errors="ignore")).hexdigest()
+                h = hashlib.sha256(block.encode("utf-8", errors="ignore"), usedforsecurity=False).hexdigest()
                 if h in seen:
                     continue
                 if total + len(block) > limit and merged:

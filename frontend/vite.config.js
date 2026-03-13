@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5174,
     proxy: {
       '/v1': {
-        target: process.env.BACKEND_SERVICE_ENDPOINT || 'http://localhost:8888',
+        target: process.env.BACKEND_SERVICE_ENDPOINT || 'http://localhost:8000',
         changeOrigin: true
       }
     }

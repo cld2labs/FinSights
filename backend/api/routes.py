@@ -1,5 +1,5 @@
 """
-API Routes for Doc-Sum Application
+API Routes for FinSights Application
 Handles all HTTP endpoints
 """
 

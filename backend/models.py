@@ -1,5 +1,5 @@
 """
-Data Models for Doc-Sum API
+Data Models for FinSights API
 """
 
 from pydantic import BaseModel, Field
