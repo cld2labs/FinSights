@@ -1,5 +1,5 @@
 """
-FastAPI server for Doc-Sum Application
+FastAPI server for FinSights Application
 """
 
 import logging
