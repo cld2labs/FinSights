@@ -18,6 +18,13 @@ AI-powered financial document analysis with intelligent section-based summarizat
 - [Project Structure](#project-structure)
 - [Usage Guide](#usage-guide)
 - [Environment Variables](#environment-variables)
+- [Inference Benchmarks](#inference-benchmarks)
+- [Model Capabilities](#model-capabilities)
+  - [Meta Llama 3.2 3B Instruct](#meta-llama-32-3b-instruct)
+  - [BAAI/bge-base-en-v1.5](#baaibge-base-en-v15)
+  - [OpenAI text-embedding-3-small](#openai-text-embedding-3-small)
+  - [GPT-4o-mini](#gpt-4o-mini)
+  - [Comparison Summary](#comparison-summary)
 - [Technology Stack](#technology-stack)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
@@ -360,6 +367,119 @@ This blueprint uses a **document-cached RAG approach without static chunking**.
 
 
 
+
+---
+
+## Inference Benchmarks
+
+The table below compares inference performance across different providers, deployment modes, and hardware profiles using a standardized FinSights document analysis workload (averaged over 3 runs of the full pipeline: initial summary, overall summary, section summary, RAG indexing, and RAG chat).
+
+
+| Provider       | LLM Model                      | Embedding Model              | Deployment           | Avg Input Tokens/Gen | Avg Output Tokens/Gen | Avg Total Tokens/Gen | P50 Latency (ms) | P95 Latency (ms) | Throughput (req/s) | Hardware                               |
+| -------------- | ------------------------------ | ---------------------------- | -------------------- | -------------------- | --------------------- | -------------------- | ---------------- | ---------------- | ------------------ | -------------------------------------- |
+| vLLM           | `Llama-3.2-3B-Instruct`       | `BAAI/bge-base-en-v1.5`     | Local                | 441                  | 127                   | 568                  | 15,283           | 59,437           | 0.050              | Apple Silicon (Metal) (MacBook Pro M4) |
+| [Intel OPEA EI](https://github.com/opea-project/Enterprise-Inference)  | `Llama-3.2-3B-Instruct`       | `BAAI/bge-base-en-v1.5`     | Enterprise (On-Prem) | 444                  | 122                   | 566                  | 4,393            | 23,270           | 0.133              | CPU-only (Xeon)                        |
+| OpenAI (Cloud) | `gpt-4o-mini`                  | `text-embedding-3-small`     | API (Cloud)          | 411                  | 133                   | 544                  | 2,772            | 11,906           | 0.221              | N/A                                    |
+
+
+> **Notes:**
+>
+> - All benchmarks use the same FinSights document analysis pipeline. Token counts may vary slightly per run due to non-deterministic model output.
+> - vLLM on Apple Silicon uses Metal (MPS) GPU acceleration for the LLM and CPU-based vLLM for the BERT embedding model (`BAAI/bge-base-en-v1.5`).
+> - [Intel OPEA Enterprise Inference](https://github.com/opea-project/Enterprise-Inference) runs on Intel Xeon CPUs without GPU acceleration.
+> - Each benchmark run exercises 5 generations: initial summary, overall summary, section summary, RAG indexing (embeddings), and RAG chat.
+> - Langfuse tracing is used for full observability of each benchmark run.
+
+---
+
+## Model Capabilities
+
+### Meta Llama 3.2 3B Instruct
+
+A 3-billion-parameter open-weight model from Meta's Llama family, optimized for instruction-following and on-device deployment.
+
+
+| Attribute                   | Details                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| **Parameters**              | 3.21B                                                                                        |
+| **Architecture**            | Transformer with Grouped Query Attention (GQA) — 28 layers, 24 Q-heads / 8 KV-heads          |
+| **Context Window**          | 128,000 tokens                                                                               |
+| **Instruction Tuning**      | RLHF + supervised fine-tuning on instruction data                                            |
+| **Multilingual**            | English, German, French, Italian, Portuguese, Hindi, Spanish, Thai                           |
+| **Quantization Formats**    | GGUF, AWQ, GPTQ, MLX (4-bit)                                                                |
+| **Inference Runtimes**      | vLLM, Ollama, llama.cpp, LMStudio, SGLang, TGI                                               |
+| **License**                 | Llama 3.2 Community License (permissive, with acceptable use policy)                         |
+| **Deployment**              | Local, on-prem, air-gapped, cloud — full data sovereignty                                    |
+
+
+### BAAI/bge-base-en-v1.5
+
+A 110M-parameter BERT-based embedding model from BAAI, widely used for retrieval and RAG pipelines.
+
+
+| Attribute                   | Details                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| **Parameters**              | 109M                                                       |
+| **Architecture**            | BERT base (12 layers, 768 hidden dim)                      |
+| **Embedding Dimensions**    | 768                                                        |
+| **Max Sequence Length**      | 512 tokens                                                 |
+| **MTEB Retrieval Score**    | 53.25 (competitive with models 3x its size)                |
+| **Inference Runtimes**      | sentence-transformers, vLLM (CPU), ONNX, TGI               |
+| **License**                 | MIT                                                        |
+| **Deployment**              | Local, on-prem, air-gapped — lightweight enough for CPU    |
+
+
+### OpenAI text-embedding-3-small
+
+OpenAI's compact embedding model, used for RAG indexing and retrieval when running with the OpenAI provider.
+
+
+| Attribute                   | Details                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| **Parameters**              | Not publicly disclosed                                     |
+| **Embedding Dimensions**    | 1,536 (default) or 512 (with `dimensions` parameter)      |
+| **Max Sequence Length**      | 8,191 tokens                                               |
+| **MTEB Retrieval Score**    | 44.0                                                       |
+| **Pricing**                 | $0.02 / 1M tokens                                          |
+| **License**                 | Proprietary (OpenAI Terms of Use)                          |
+| **Deployment**              | Cloud-only — OpenAI API or Azure OpenAI Service            |
+
+
+### GPT-4o-mini
+
+OpenAI's cost-efficient multimodal model, accessible exclusively via cloud API.
+
+
+| Attribute                   | Details                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| **Parameters**              | Not publicly disclosed                                                            |
+| **Architecture**            | Multimodal Transformer (text + image input, text output)                          |
+| **Context Window**          | 128,000 tokens input / 16,384 tokens max output                                   |
+| **Tool / Function Calling** | Supported; parallel function calling                                              |
+| **Structured Output**       | JSON mode and strict JSON schema adherence supported                              |
+| **Multilingual**            | Broad multilingual support                                                        |
+| **Pricing**                 | $0.15 / 1M input tokens, $0.60 / 1M output tokens (Batch API: 50% discount)       |
+| **Fine-Tuning**             | Supervised fine-tuning via OpenAI API                                             |
+| **License**                 | Proprietary (OpenAI Terms of Use)                                                 |
+| **Deployment**              | Cloud-only — OpenAI API or Azure OpenAI Service. No self-hosted or on-prem option |
+
+
+### Comparison Summary
+
+
+| Capability                      | Llama 3.2 3B Instruct            | GPT-4o-mini                       |
+| ------------------------------- | -------------------------------- | --------------------------------- |
+| Financial document analysis     | Yes                              | Yes                               |
+| RAG-based document chat         | Yes                              | Yes                               |
+| On-prem / air-gapped deployment | Yes                              | No                                |
+| Data sovereignty                | Full (weights run locally)       | No (data sent to cloud API)       |
+| Open weights                    | Yes (Llama Community License)    | No (proprietary)                  |
+| Custom fine-tuning              | Full fine-tuning + LoRA adapters | Supervised fine-tuning (API only) |
+| Multimodal (image input)        | No                               | Yes                               |
+| Native context window           | 128K                             | 128K                              |
+
+
+> Both models support financial document analysis and RAG-based chat. However, only Llama 3.2 offers open weights, data sovereignty, and local deployment flexibility — making it suitable for air-gapped, regulated, or cost-sensitive environments. GPT-4o-mini offers lower latency and higher throughput via OpenAI's cloud infrastructure, with added multimodal capabilities.
 
 ---
 
