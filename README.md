@@ -375,11 +375,11 @@ This blueprint uses a **document-cached RAG approach without static chunking**.
 The table below compares inference performance across different providers, deployment modes, and hardware profiles using a standardized FinSights document analysis workload (averaged over 3 runs of the full pipeline: initial summary, overall summary, section summary, RAG indexing, and RAG chat).
 
 
-| Provider       | LLM Model                      | Embedding Model              | Deployment           | Avg Input Tokens/Gen | Avg Output Tokens/Gen | Avg Total Tokens/Gen | P50 Latency (ms) | P95 Latency (ms) | Throughput (req/s) | Hardware                               |
-| -------------- | ------------------------------ | ---------------------------- | -------------------- | -------------------- | --------------------- | -------------------- | ---------------- | ---------------- | ------------------ | -------------------------------------- |
-| vLLM           | `Llama-3.2-3B-Instruct`       | `BAAI/bge-base-en-v1.5`     | Local                | 441                  | 127                   | 568                  | 15,283           | 59,437           | 0.050              | Apple Silicon (Metal) (MacBook Pro M4) |
-| [Intel OPEA EI](https://github.com/opea-project/Enterprise-Inference)  | `Llama-3.2-3B-Instruct`       | `BAAI/bge-base-en-v1.5`     | Enterprise (On-Prem) | 444                  | 122                   | 566                  | 4,393            | 23,270           | 0.133              | CPU-only (Xeon)                        |
-| OpenAI (Cloud) | `gpt-4o-mini`                  | `text-embedding-3-small`     | API (Cloud)          | 411                  | 133                   | 544                  | 2,772            | 11,906           | 0.221              | N/A                                    |
+| Provider       | LLM Model                      | LLM Context | Embedding Model              | Embed Context | Deployment           | Avg Input Tokens/Gen | Avg Output Tokens/Gen | Avg Total Tokens/Gen | P50 Latency (ms) | P95 Latency (ms) | Throughput (req/s) | Hardware                               |
+| -------------- | ------------------------------ | ----------- | ---------------------------- | ------------- | -------------------- | -------------------- | --------------------- | -------------------- | ---------------- | ---------------- | ------------------ | -------------------------------------- |
+| vLLM           | `Llama-3.2-3B-Instruct`       | 4,096       | `BAAI/bge-base-en-v1.5`     | 512           | Local                | 441                  | 127                   | 568                  | 15,283           | 59,437           | 0.050              | Apple Silicon (Metal) (MacBook Pro M4) |
+| [Intel OPEA EI](https://github.com/opea-project/Enterprise-Inference)  | `Llama-3.2-3B-Instruct`       | 8,192       | `BAAI/bge-base-en-v1.5`     | 512           | Enterprise (On-Prem) | 444                  | 122                   | 566                  | 4,393            | 23,270           | 0.133              | CPU-only (Xeon)                        |
+| OpenAI (Cloud) | `gpt-4o-mini`                  | 128,000     | `text-embedding-3-small`     | 8,191         | API (Cloud)          | 411                  | 133                   | 544                  | 2,772            | 11,906           | 0.221              | N/A                                    |
 
 
 > **Notes:**
@@ -387,6 +387,7 @@ The table below compares inference performance across different providers, deplo
 > - All benchmarks use the same FinSights document analysis pipeline. Token counts may vary slightly per run due to non-deterministic model output.
 > - vLLM on Apple Silicon uses Metal (MPS) GPU acceleration for the LLM and CPU-based vLLM for the BERT embedding model (`BAAI/bge-base-en-v1.5`).
 > - [Intel OPEA Enterprise Inference](https://github.com/opea-project/Enterprise-Inference) runs on Intel Xeon CPUs without GPU acceleration.
+> - Llama 3.2 3B natively supports 128K context, but vLLM local was benchmarked with `--max-model-len 4096` due to Apple Silicon memory constraints. EI is configured with 8,192 token context.
 > - Each benchmark run exercises 5 generations: initial summary, overall summary, section summary, RAG indexing (embeddings), and RAG chat.
 > - Langfuse tracing is used for full observability of each benchmark run.
 
