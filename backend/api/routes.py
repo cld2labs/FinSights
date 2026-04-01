@@ -23,6 +23,47 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _build_upload_warning(filename: str, document_info: dict) -> dict:
+    over_size_limit = document_info["file_size_bytes"] > config.MAX_PDF_SIZE
+    over_page_limit = bool(document_info.get("is_pdf")) and (document_info.get("page_count") or 0) > config.MAX_PDF_PAGES
+
+    reasons = []
+    if over_size_limit:
+        reasons.append(
+            f'"{filename}" is {document_info["file_size_mb"]} MB, above the {document_info["max_file_size_mb"]} MB limit.'
+        )
+    if over_page_limit:
+        reasons.append(
+            f'This PDF has {document_info["page_count"]} pages, and only the first {document_info["pages_to_process"]} pages will be processed.'
+        )
+
+    if not reasons:
+        return {}
+
+    summary = " ".join(reasons)
+    if over_page_limit:
+        summary += f" If you continue, FinSights will upload the file but use only the first {document_info['pages_to_process']} pages for extraction."
+    elif over_size_limit:
+        summary += " If you continue, FinSights will upload the full file and attempt normal extraction."
+
+    return {
+        "code": "upload_confirmation_required",
+        "message": summary,
+        "filename": filename,
+        "requires_confirmation": True,
+        "over_size_limit": over_size_limit,
+        "over_page_limit": over_page_limit,
+        "file_size_bytes": document_info["file_size_bytes"],
+        "file_size_mb": document_info["file_size_mb"],
+        "max_file_size_bytes": document_info["max_file_size_bytes"],
+        "max_file_size_mb": document_info["max_file_size_mb"],
+        "page_count": document_info.get("page_count"),
+        "page_limit": document_info.get("page_limit"),
+        "pages_to_process": document_info.get("pages_to_process"),
+        "will_trim_pages": document_info.get("will_trim_pages", False),
+    }
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint"""
@@ -153,6 +194,7 @@ async def summarize_document(
     section: str = Form(""),                # required if mode=financial_section
     # doc_id for cached section requests (frontend should send this on clicks)
     doc_id: str = Form(""),
+    ignore_upload_warnings: str = Form("false"),
     files: Optional[UploadFile] = File(None),
 ):
     """
@@ -168,6 +210,7 @@ async def summarize_document(
     """
     try:
         stream_bool = stream.lower() == "true"
+        ignore_upload_warnings_bool = ignore_upload_warnings.lower() == "true"
 
         # Enforce backend constraints:
         # streaming supported only for financial_overall (per llm_service)
@@ -312,6 +355,13 @@ async def summarize_document(
                     file_type = "PDF" if filename_lower.endswith(".pdf") else "DOCX"
                     logger.info(f"Extracting text from {file_type} file")
 
+                    document_info = pdf_service.analyze_document(temp_path)
+                    upload_warning = _build_upload_warning(files.filename, document_info)
+
+                    if upload_warning and not ignore_upload_warnings_bool:
+                        os.remove(temp_path)
+                        raise HTTPException(status_code=413, detail=upload_warning)
+
                     text_content = pdf_service.extract_text(temp_path)
                     os.remove(temp_path)
 
@@ -336,7 +386,7 @@ async def summarize_document(
                             mode="financial_section",
                             section=section.strip(),
                         )
-                        return {
+                        response = {
                             "doc_id": created_doc_id,
                             "text": section_out,
                             "summary": section_out,
@@ -346,11 +396,14 @@ async def summarize_document(
                             "section": section.strip(),
                             "sections": llm_service.get_doc_sections(created_doc_id) or [],
                         }
+                        if upload_warning:
+                            response["upload_warning"] = upload_warning
+                        return response
 
                     # Otherwise return fast initial summary (also discovers sections internally)
                     initial_summary = llm_service.initial_summary_first_chunk(created_doc_id)
                     sections = llm_service.get_doc_sections(created_doc_id) or []
-                    return {
+                    response = {
                         "doc_id": created_doc_id,
                         "text": initial_summary,
                         "summary": initial_summary,
@@ -360,6 +413,9 @@ async def summarize_document(
                         "section": "",
                         "sections": sections,
                     }
+                    if upload_warning:
+                        response["upload_warning"] = upload_warning
+                    return response
 
                 # TXT
                 if filename_lower.endswith(".txt"):
@@ -412,16 +468,14 @@ async def summarize_document(
 
                 # Unsupported type
                 logger.error(f"Unsupported file type: {files.filename}")
-                os.remove(temp_path)
                 raise HTTPException(
                     status_code=400,
                     detail="Unsupported file type. Please upload PDF, DOCX, or TXT files.",
                 )
 
-            except Exception:
+            finally:
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
-                raise
 
         # ========== Invalid Request ==========
         raise HTTPException(status_code=400, detail="Either text message or file is required")
