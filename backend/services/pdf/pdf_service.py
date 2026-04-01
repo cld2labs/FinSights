@@ -49,6 +49,34 @@ class PDFService:
             logger.error(f"Document extraction error: {str(e)}")
             raise Exception(f"Failed to extract text from document: {str(e)}")
 
+    def analyze_document(self, file_path: str) -> dict:
+        """
+        Inspect a document before extraction so the API can explain limits clearly.
+        """
+        filename_lower = file_path.lower()
+        file_size_bytes = os.path.getsize(file_path)
+        metadata = {
+            "file_size_bytes": file_size_bytes,
+            "file_size_mb": round(file_size_bytes / (1024 * 1024), 2),
+            "max_file_size_bytes": config.MAX_PDF_SIZE,
+            "max_file_size_mb": round(config.MAX_PDF_SIZE / (1024 * 1024), 2),
+            "page_limit": config.MAX_PDF_PAGES,
+            "page_count": None,
+            "pages_to_process": None,
+            "will_trim_pages": False,
+            "is_pdf": filename_lower.endswith(".pdf"),
+        }
+
+        if metadata["is_pdf"]:
+            with open(file_path, "rb") as file:
+                pdf_reader = PdfReader(file)
+                page_count = len(pdf_reader.pages)
+            metadata["page_count"] = page_count
+            metadata["pages_to_process"] = min(page_count, config.MAX_PDF_PAGES)
+            metadata["will_trim_pages"] = page_count > config.MAX_PDF_PAGES
+
+        return metadata
+
     def _extract_from_pdf(self, pdf_path: str) -> str:
         """
         Extract text from PDF file with automatic OCR fallback for image-based PDFs

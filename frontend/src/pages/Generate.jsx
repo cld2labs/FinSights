@@ -37,6 +37,8 @@ const streamText = (text, onUpdate, targetMs = 900, tickMs = 20) => {
 
 export const Generate = () => {
   const [activeTab, setActiveTab] = useState('text');
+  const [uploadWarning, setUploadWarning] = useState(null);
+  const [processingNotice, setProcessingNotice] = useState(null);
 
   // Store last submitted input (for text flow only)
   const [lastFormData, setLastFormData] = useState(null);
@@ -201,11 +203,15 @@ export const Generate = () => {
     doc.save(filename);
   };
 
-  const resetRunState = () => {
+  const resetRunState = ({ preserveUploadState = false } = {}) => {
     setHistory([]);
     setDocId('');
     setDynamicSections([]);
     setLastFormData(null);
+    if (!preserveUploadState) {
+      setUploadWarning(null);
+      setProcessingNotice(null);
+    }
 
     // RAG
     setRagReady(false);
@@ -235,13 +241,15 @@ export const Generate = () => {
 
   const handleSubmit = async (formData) => {
     setIsLoadingInitial(true);
+    setUploadWarning(null);
+    setProcessingNotice(null);
     
     // Clean up old vectors before submitting new document
     if (docId) {
       await deleteVectors(docId);
     }
     
-    resetRunState();
+    resetRunState({ preserveUploadState: true });
 
     // Store lastFormData only for text flow
     if (activeTab === 'text') setLastFormData(formData);
@@ -251,6 +259,9 @@ export const Generate = () => {
       fd.set('mode', 'financial_initial');
 
       const json = await generateSummaryJson(fd);
+      if (json?.upload_warning) {
+        setProcessingNotice(json.upload_warning);
+      }
 
       if (json.doc_id) {
         setDocId(json.doc_id);
@@ -305,6 +316,11 @@ export const Generate = () => {
       toast.success('Initial summary generated. Select a section below.');
     } catch (error) {
       console.error('Error:', error);
+      if (error?.detail?.code === 'upload_confirmation_required') {
+        setUploadWarning(error.detail);
+        toast.error('Review the upload warning before continuing.');
+        return;
+      }
       toast.error('Failed to generate summary. Please try again.');
       resetRunState();
     } finally {
@@ -609,6 +625,13 @@ export const Generate = () => {
                 fileType="text"
                 title="Upload Document"
                 maxFileSize="50 MB"
+                maxFileSizeBytes={50 * 1024 * 1024}
+                uploadWarning={uploadWarning}
+                processingNotice={processingNotice}
+                onDismissWarning={() => {
+                  setUploadWarning(null);
+                  setProcessingNotice(null);
+                }}
               />
             )}
           </div>

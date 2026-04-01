@@ -1,9 +1,25 @@
 import { useState } from 'react';
 import { Upload, FileText, X } from 'lucide-react';
 
-const FileUpload = ({ onSubmit, isLoading, acceptedTypes, fileType, title, maxFileSize }) => {
+const FileUpload = ({
+  onSubmit,
+  isLoading,
+  acceptedTypes,
+  fileType,
+  title,
+  maxFileSize,
+  maxFileSizeBytes = 50 * 1024 * 1024,
+  uploadWarning,
+  processingNotice,
+  onDismissWarning,
+}) => {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState(null);
+
+  const setSelectedFile = (nextFile) => {
+    setFile(nextFile);
+    onDismissWarning?.();
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -25,7 +41,7 @@ const FileUpload = ({ onSubmit, isLoading, acceptedTypes, fileType, title, maxFi
       const fileExtension = '.' + droppedFile.name.split('.').pop().toLowerCase();
 
       if (acceptedTypes.includes(fileExtension)) {
-        setFile(droppedFile);
+        setSelectedFile(droppedFile);
       }
     }
   };
@@ -33,16 +49,15 @@ const FileUpload = ({ onSubmit, isLoading, acceptedTypes, fileType, title, maxFi
   const handleChange = (e) => {
     e.preventDefault();
     if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+      setSelectedFile(e.target.files[0]);
     }
   };
 
   const handleRemoveFile = () => {
-    setFile(null);
+    setSelectedFile(null);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const submitFile = (ignoreUploadWarnings = false) => {
     if (!file) return;
 
     const formData = new FormData();
@@ -53,9 +68,17 @@ const FileUpload = ({ onSubmit, isLoading, acceptedTypes, fileType, title, maxFi
     formData.append('language', 'en');
     formData.append('summary_type', 'auto');
     formData.append('stream', 'false');
+    formData.append('ignore_upload_warnings', String(ignoreUploadWarnings));
 
     onSubmit(formData, false);
   };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    submitFile(false);
+  };
+
+  const isOverLocalSizeLimit = !!file && file.size > maxFileSizeBytes;
 
   return (
     <div className="card animate-fadeIn">
@@ -121,6 +144,58 @@ const FileUpload = ({ onSubmit, isLoading, acceptedTypes, fileType, title, maxFi
             </div>
           )}
         </div>
+
+        {isOverLocalSizeLimit && !uploadWarning && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+            <p className="text-sm text-amber-900">
+              This file is {(file.size / 1024 / 1024).toFixed(2)} MB. The backend limit is {maxFileSize || '50 MB'}, so you will need to confirm the upload before processing continues.
+            </p>
+          </div>
+        )}
+
+        {uploadWarning && (
+          <div className="rounded-lg border border-red-300 bg-red-50 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-red-900">Upload warning</p>
+              <p className="text-sm text-red-800">{uploadWarning.message}</p>
+            </div>
+
+            <div className="space-y-1 text-xs text-red-900">
+              {uploadWarning.file_size_mb ? (
+                <p>File size: {uploadWarning.file_size_mb} MB of {uploadWarning.max_file_size_mb} MB allowed.</p>
+              ) : null}
+              {uploadWarning.page_count ? (
+                <p>Pages detected: {uploadWarning.page_count}. Pages that will be processed: {uploadWarning.pages_to_process}.</p>
+              ) : null}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => submitFile(true)}
+                disabled={isLoading}
+                className="btn-primary"
+              >
+                Upload Anyway
+              </button>
+              <button
+                type="button"
+                onClick={onDismissWarning}
+                disabled={isLoading}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {processingNotice && !uploadWarning && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+            <p className="text-sm font-semibold text-amber-900">Processing notice</p>
+            <p className="text-sm text-amber-800">{processingNotice.message}</p>
+          </div>
+        )}
 
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <p className="text-sm text-blue-800">

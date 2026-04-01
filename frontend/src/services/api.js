@@ -1,6 +1,18 @@
 // src/services/api.js
 const BACKEND_ENDPOINT = import.meta.env.VITE_BACKEND_ENDPOINT || '';
 
+const parseErrorPayload = async (response) => {
+  const responseText = await response.text();
+
+  try {
+    const parsed = JSON.parse(responseText);
+    if (parsed?.detail !== undefined) return parsed.detail;
+    return parsed;
+  } catch {
+    return responseText;
+  }
+};
+
 // Helper function to decode Python string escape sequences
 const decodePythonString = (str) => {
   return str
@@ -110,8 +122,15 @@ export const generateSummaryJson = async (formData) => {
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API Error: ${response.status} - ${errorText}`);
+    const detail = await parseErrorPayload(response);
+    const error = new Error(
+      typeof detail === 'string'
+        ? `API Error: ${response.status} - ${detail}`
+        : `API Error: ${response.status}`
+    );
+    error.status = response.status;
+    error.detail = detail;
+    throw error;
   }
 
   const responseText = await response.text();

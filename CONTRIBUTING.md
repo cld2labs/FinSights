@@ -33,7 +33,7 @@ git --version
 New to contributing?
 
 1. Open an issue or pick an existing one to work on.
-2. Sync your branch from `dev`.
+2. Sync your branch from `finsights/dev`.
 3. Follow the local setup guide below.
 4. Run the app locally and verify your change before opening a PR.
 
@@ -193,11 +193,11 @@ This starts:
 ### Start contributing code?
 
 1. Open or choose an issue.
-2. Create a feature branch from `dev`.
+2. Create a feature branch from `finsights/dev`.
 3. Keep the change focused on a single problem.
 4. Run the app locally and verify the affected workflow.
 5. Update docs when behavior, setup, configuration, or architecture changes.
-6. Open a pull request back from your feature branch into `dev`.
+6. Open a pull request back from your feature branch into `finsights/dev`.
 
 ### Improve the documentation?
 
@@ -218,7 +218,7 @@ Follow the checklist below before opening your PR. Your pull request should:
 - Include screenshots or short recordings for UI changes.
 - Reference the related GitHub issue when applicable.
 
-Note: pull requests should target the `dev` branch.
+Note: pull requests should target the `finsights/dev` branch.
 
 ---
 
@@ -245,7 +245,7 @@ Before submitting your pull request, confirm the following:
 - You kept the pull request scoped to one issue or topic.
 - You added screenshots for UI changes when relevant.
 - You did not commit secrets, API keys, or cached documents.
-- You are opening the pull request against `dev`.
+- You are opening the pull request against `finsights/dev`.
 
 If one or more of these are missing, the pull request may be sent back for changes before review.
 
@@ -253,10 +253,10 @@ If one or more of these are missing, the pull request may be sent back for chang
 
 ## Branching model
 
-- Base new work from `dev`.
-- Open pull requests against `dev`.
+- Base new work from `finsights/dev`.
+- Open pull requests against `finsights/dev`.
 - Use descriptive branch names such as `fix/rag-chat-validation` or `docs/update-contributing-guide`.
-- Rebase or merge the latest `dev` before opening your PR if your branch has drifted.
+- Rebase or merge the latest `finsights/dev` before opening your PR if your branch has drifted.
 
 ---
 
