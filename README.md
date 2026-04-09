@@ -18,7 +18,7 @@ AI-powered financial document analysis with intelligent section-based summarizat
 - [Project Structure](#project-structure)
 - [Usage Guide](#usage-guide)
 - [Environment Variables](#environment-variables)
-- [Inference Benchmarks](#inference-benchmarks)
+- [Inference Metrics](#inference-metrics)
 - [Model Capabilities](#model-capabilities)
   - [Meta Llama 3.2 3B Instruct](#meta-llama-32-3b-instruct)
   - [BAAI/bge-base-en-v1.5](#baaibge-base-en-v15)
@@ -370,7 +370,7 @@ This blueprint uses a **document-cached RAG approach without static chunking**.
 
 ---
 
-## Inference Benchmarks
+## Inference Metrics
 
 The table below compares inference performance across different providers, deployment modes, and hardware profiles using a standardized FinSights document analysis workload (averaged over 3 runs of the full pipeline: initial summary, overall summary, section summary, RAG indexing, and RAG chat).
 
@@ -384,7 +384,7 @@ The table below compares inference performance across different providers, deplo
 
 > **Notes:**
 >
-> - All benchmarks use the same FinSights document analysis pipeline. Token counts may vary slightly per run due to non-deterministic model output.
+> - All metrics use the same FinSights document analysis pipeline. Token counts may vary slightly per run due to non-deterministic model output.
 > - vLLM on Apple Silicon uses Metal (MPS) GPU acceleration for the LLM and CPU-based vLLM for the BERT embedding model (`BAAI/bge-base-en-v1.5`).
 > - [Intel OPEA Enterprise Inference](https://github.com/opea-project/Enterprise-Inference) runs on Intel Xeon CPUs without GPU acceleration.
 > - Llama 3.2 3B natively supports 128K context, but vLLM local was benchmarked with `--max-model-len 4096` due to Apple Silicon memory constraints. EI is configured with 8,192 token context.
